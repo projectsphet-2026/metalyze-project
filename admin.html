@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="th" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metalyze - แผงควบคุมผู้ดูแลระบบ (Admin Panel)</title>
+    
+    <!-- IBM Plex Sans Thai Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- SweetAlert 2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Tailwind Configuration for Custom Theme & Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"IBM Plex Sans Thai"', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: {
+                            950: '#030712',
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        },
+                        fluo: {
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            violet: '#8b5cf6',
+                            yellow: '#fbbf24'
+                        }
+                    },
+                    boxShadow: {
+                        'glow-cyan': '0 0 15px rgba(6, 182, 212, 0.5)',
+                        'glow-emerald': '0 0 15px rgba(16, 185, 129, 0.5)',
+                        'glow-rose': '0 0 15px rgba(244, 63, 94, 0.5)',
+                        'glow-violet': '0 0 15px rgba(139, 92, 246, 0.5)',
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom CSS styles for Glow and Layout Effects -->
+    <style>
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-input {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f3f4f6;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030712;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        /* Glowing text effect */
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6), 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        .neon-text-rose {
+            text-shadow: 0 0 8px rgba(244, 63, 94, 0.6), 0 0 20px rgba(244, 63, 94, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-dark-950 via-slate-950 to-dark-900 min-h-screen text-slate-100 font-sans antialiased pb-20">
+
+    <!-- Glowing Background blobs -->
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-fluo-cyan/5 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+    <div class="absolute top-1/2 right-10 w-96 h-96 bg-fluo-violet/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-dark-950/90 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full mx-4 p-8 rounded-3xl border-white/10 shadow-glass text-center space-y-6 transform transition-all scale-100 duration-300">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-fluo-cyan to-fluo-violet flex items-center justify-center text-dark-950 font-bold text-2xl shadow-glow-cyan">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            
+            <div class="space-y-2">
+                <h2 class="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-fluo-cyan to-white font-mono">ADMIN LOGIN</h2>
+                <p class="text-xs text-slate-400 font-light">ระบบจัดการข้อมูลรายงานคุณภาพน้ำและแสดงความคิดเห็น</p>
+            </div>
+
+            <form id="login-form" class="space-y-4">
+                <div class="text-left">
+                    <label for="admin-password" class="block text-xs font-semibold text-slate-300 mb-1.5">รหัสผ่านแอดมิน</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
+                            <i class="fa-solid fa-key"></i>
+                        </span>
+                        <input type="password" id="admin-password" placeholder="กรอกรหัสผ่านเพื่อปลดล็อกสิทธิ์ลบ..." class="w-full pl-10 pr-4 py-3 rounded-xl glass-input text-sm" required autofocus autocomplete="current-password">
+                    </div>
+                </div>
+
+                <button type="submit" class="w-full inline-flex items-center justify-center py-3 px-6 rounded-xl text-sm font-semibold tracking-wider text-dark-950 bg-gradient-to-r from-fluo-cyan to-fluo-violet hover:from-fluo-violet hover:to-fluo-cyan transition-all duration-300 shadow-glow-cyan transform hover:-translate-y-0.5">
+                    เข้าสู่ระบบ
+                </button>
+            </form>
+            
+            <div class="pt-4 border-t border-white/5">
+                <a href="index.html" class="text-xs text-slate-400 hover:text-fluo-cyan transition-colors">
+                    <i class="fa-solid fa-arrow-left mr-1.5"></i> กลับหน้าแรกแชร์ข้อมูล
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Panel Content (Hidden initially) -->
+    <div id="admin-content" class="hidden">
+        
+        <!-- Navigation Header -->
+        <header class="sticky top-0 z-40 glass-panel border-b border-white/5 transition-all duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex items-center justify-between h-16">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-fluo-cyan to-fluo-violet flex items-center justify-center text-dark-950 font-bold text-xl shadow-glow-cyan">
+                            <i class="fa-solid fa-gear"></i>
+                        </div>
+                        <div>
+                            <span class="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-fluo-cyan to-white font-mono">METALYZE ADMIN</span>
+                            <span class="text-xs block text-slate-400 font-light -mt-1">แผงจัดการข้อมูลหลังบ้าน</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-4">
+                        <a href="index.html" class="hidden sm:inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-colors">
+                            <i class="fa-solid fa-arrow-left mr-1.5"></i> ไปหน้าแรก
+                        </a>
+                        <button id="btn-logout" class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold bg-fluo-rose/10 hover:bg-fluo-rose/20 text-fluo-rose border border-fluo-rose/20 transition-colors">
+                            <i class="fa-solid fa-right-from-bracket mr-1.5"></i> ออกจากระบบ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-8">
+            
+            <!-- Stats Dashboard Banner -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <span class="text-xs text-slate-400 block mb-1">รายงานคุณภาพน้ำทั้งหมด</span>
+                    <span id="stat-total-reports" class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 font-mono">0</span>
+                    <span class="text-xs text-slate-400">รายการ</span>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border-fluo-rose/10 relative overflow-hidden">
+                    <span class="text-xs text-slate-400 block mb-1">พบปนเปื้อนโลหะหนัก</span>
+                    <span id="stat-contaminated-reports" class="text-3xl font-extrabold text-fluo-rose neon-text-rose font-mono">0</span>
+                    <span class="text-xs text-slate-400">จุด</span>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl border-fluo-emerald/10 relative overflow-hidden">
+                    <span class="text-xs text-slate-400 block mb-1">ปลอดภัย (สว่างปกติ)</span>
+                    <span id="stat-safe-reports" class="text-3xl font-extrabold text-fluo-emerald font-mono">0</span>
+                    <span class="text-xs text-slate-400">จุด</span>
+                </div>
+                <div class="glass-panel p-5 rounded-2xl relative overflow-hidden">
+                    <span class="text-xs text-slate-400 block mb-1">ความคิดเห็นทั้งหมด</span>
+                    <span id="stat-total-comments" class="text-3xl font-extrabold text-fluo-cyan neon-text-cyan font-mono">0</span>
+                    <span class="text-xs text-slate-400">ข้อความ</span>
+                </div>
+            </div>
+
+            <!-- Tab Switching Layout -->
+            <div class="space-y-6">
+                <!-- Navigation Tabs -->
+                <div class="flex border-b border-white/10 space-x-4">
+                    <button id="tab-reports-btn" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-fluo-cyan text-fluo-cyan transition-all">
+                        <i class="fa-solid fa-file-invoice-paragraph mr-2"></i>จัดการรายงานคุณภาพน้ำ
+                    </button>
+                    <button id="tab-comments-btn" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all">
+                        <i class="fa-solid fa-comments mr-2"></i>จัดการความคิดเห็น
+                    </button>
+                </div>
+
+                <!-- TAB 1: REPORTS MANAGEMENT -->
+                <div id="tab-reports-content" class="space-y-4">
+                    <!-- Filters and Search -->
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-center border-white/5">
+                        <div class="flex space-x-2 w-full md:w-auto">
+                            <button class="filter-report-btn px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 text-white" data-filter="all">
+                                ทั้งหมด
+                            </button>
+                            <button class="filter-report-btn px-4 py-2 rounded-xl text-xs font-semibold bg-transparent text-slate-400 hover:text-white" data-filter="contaminated">
+                                🔴 พบโลหะหนัก
+                            </button>
+                            <button class="filter-report-btn px-4 py-2 rounded-xl text-xs font-semibold bg-transparent text-slate-400 hover:text-white" data-filter="safe">
+                                🟢 ปลอดภัย
+                            </button>
+                        </div>
+
+                        <!-- Live Search input -->
+                        <div class="relative w-full md:w-80">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <input type="text" id="search-report" placeholder="ค้นหาตามสถานที่, จังหวัด, อำเภอ..." class="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-xs">
+                        </div>
+                    </div>
+
+                    <!-- Loader -->
+                    <div id="reports-loader" class="flex flex-col items-center justify-center py-12 space-y-2">
+                        <i class="fa-solid fa-circle-notch animate-spin text-3xl text-fluo-cyan"></i>
+                        <span class="text-xs text-slate-400">กำลังดาวน์โหลดข้อมูลรายงาน...</span>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="reports-empty" class="hidden glass-panel py-12 text-center rounded-2xl border-white/5 text-slate-400 text-xs">
+                        <i class="fa-solid fa-database text-3xl block mb-2 opacity-30"></i>
+                        ไม่พบข้อมูลรายงานตามเงื่อนไขที่เลือก
+                    </div>
+
+                    <!-- Reports Table (Large screen & Desktop) -->
+                    <div id="reports-table-container" class="hidden overflow-x-auto glass-panel rounded-2xl border-white/5 shadow-md">
+                        <table class="min-w-full text-xs text-left">
+                            <thead class="bg-slate-900/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-white/5">
+                                <tr>
+                                    <th class="py-3.5 px-4 font-semibold">วันเวลาที่ลง</th>
+                                    <th class="py-3.5 px-4 font-semibold">สถานที่</th>
+                                    <th class="py-3.5 px-4 font-semibold">ที่อยู่</th>
+                                    <th class="py-3.5 px-4 font-semibold">ความเรืองแสง/สถานะ</th>
+                                    <th class="py-3.5 px-4 font-semibold">PPM</th>
+                                    <th class="py-3.5 px-4 font-semibold">ภาพถ่าย</th>
+                                    <th class="py-3.5 px-4 font-semibold">ผู้รายงาน</th>
+                                    <th class="py-3.5 px-4 font-semibold text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reports-tbody" class="divide-y divide-white/5">
+                                <!-- Dynamic reports row -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 2: COMMENTS MANAGEMENT -->
+                <div id="tab-comments-content" class="hidden space-y-4">
+                    <!-- Filters and Search -->
+                    <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-center border-white/5">
+                        <div class="flex space-x-2 w-full md:w-auto">
+                            <button class="filter-comment-btn px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 text-white" data-filter="all">
+                                ทั้งหมด
+                            </button>
+                            <button class="filter-comment-btn px-4 py-2 rounded-xl text-xs font-semibold bg-transparent text-slate-400 hover:text-white" data-filter="general">
+                                เสวนาทั่วไป
+                            </button>
+                            <button class="filter-comment-btn px-4 py-2 rounded-xl text-xs font-semibold bg-transparent text-slate-400 hover:text-white" data-filter="report">
+                                ความเห็นในรายงาน
+                            </button>
+                        </div>
+
+                        <!-- Live Search input -->
+                        <div class="relative w-full md:w-80">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <i class="fa-solid fa-magnifying-glass"></i>
+                            </span>
+                            <input type="text" id="search-comment" placeholder="ค้นหาเนื้อหาคอมเมนต์ หรือ ชื่อผู้เขียน..." class="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-xs">
+                        </div>
+                    </div>
+
+                    <!-- Loader -->
+                    <div id="comments-loader" class="flex flex-col items-center justify-center py-12 space-y-2">
+                        <i class="fa-solid fa-circle-notch animate-spin text-3xl text-fluo-cyan"></i>
+                        <span class="text-xs text-slate-400">กำลังดาวน์โหลดข้อความความคิดเห็น...</span>
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="comments-empty" class="hidden glass-panel py-12 text-center rounded-2xl border-white/5 text-slate-400 text-xs">
+                        <i class="fa-solid fa-comments text-3xl block mb-2 opacity-30"></i>
+                        ไม่พบข้อความความคิดเห็นตามเงื่อนไขที่เลือก
+                    </div>
+
+                    <!-- Comments Table -->
+                    <div id="comments-table-container" class="hidden overflow-x-auto glass-panel rounded-2xl border-white/5 shadow-md">
+                        <table class="min-w-full text-xs text-left">
+                            <thead class="bg-slate-900/80 text-[10px] text-slate-400 uppercase tracking-wider border-b border-white/5">
+                                <tr>
+                                    <th class="py-3.5 px-4 font-semibold">วันเวลาที่โพสต์</th>
+                                    <th class="py-3.5 px-4 font-semibold">กระดาน/เป้าหมาย</th>
+                                    <th class="py-3.5 px-4 font-semibold">ผู้เขียน</th>
+                                    <th class="py-3.5 px-4 font-semibold w-1/2">ข้อความความคิดเห็น</th>
+                                    <th class="py-3.5 px-4 font-semibold text-center">จัดการ</th>
+                                </tr>
+                            </thead>
+                            <tbody id="comments-tbody" class="divide-y divide-white/5">
+                                <!-- Dynamic comments row -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- CLIENT LOGIC & INTEGRATIONS -->
+    <script>
+        const supabaseUrl = 'https://hhiomwcygqhoxsqcemtk.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoaW9td2N5Z3Fob3hzcWNlbXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjY5NjcsImV4cCI6MjA5NzgwMjk2N30.VB-3GPykOdgBp2HK88SBOcaGUrzBs9h3iGht-9Y3pdY';
+        
+        let supabaseClient;
+        try {
+            const { createClient } = supabase;
+            supabaseClient = createClient(supabaseUrl, supabaseKey);
+        } catch (e) {
+            console.error("Supabase load error:", e);
+        }
+
+        // State global variables
+        let reportsData = [];
+        let commentsData = [];
+        
+        let reportFilter = 'all';
+        let commentFilter = 'all';
+
+        let adminPassword = '';
+
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Check active session
+            const cachedPass = sessionStorage.getItem('admin_password');
+            if (cachedPass) {
+                await attemptLogin(cachedPass, true);
+            }
+
+            setupEventHandlers();
+        });
+
+        function setupEventHandlers() {
+            // Login Form Submit
+            document.getElementById('login-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const passwordInput = document.getElementById('admin-password').value;
+                await attemptLogin(passwordInput);
+            });
+
+            // Logout Button
+            document.getElementById('btn-logout').addEventListener('click', () => {
+                sessionStorage.removeItem('admin_password');
+                adminPassword = '';
+                document.getElementById('admin-content').classList.add('hidden');
+                document.getElementById('login-overlay').classList.remove('hidden');
+                document.getElementById('admin-password').value = '';
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ออกจากระบบสำเร็จ',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            });
+
+            // Tab Switching
+            const tabReportsBtn = document.getElementById('tab-reports-btn');
+            const tabCommentsBtn = document.getElementById('tab-comments-btn');
+            const tabReportsContent = document.getElementById('tab-reports-content');
+            const tabCommentsContent = document.getElementById('tab-comments-content');
+
+            tabReportsBtn.addEventListener('click', () => {
+                tabReportsBtn.className = 'px-4 py-2.5 text-sm font-semibold border-b-2 border-fluo-cyan text-fluo-cyan transition-all';
+                tabCommentsBtn.className = 'px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all';
+                tabReportsContent.classList.remove('hidden');
+                tabCommentsContent.classList.add('hidden');
+            });
+
+            tabCommentsBtn.addEventListener('click', () => {
+                tabCommentsBtn.className = 'px-4 py-2.5 text-sm font-semibold border-b-2 border-fluo-cyan text-fluo-cyan transition-all';
+                tabReportsBtn.className = 'px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition-all';
+                tabCommentsContent.classList.remove('hidden');
+                tabReportsContent.classList.add('hidden');
+            });
+
+            // Search inputs
+            document.getElementById('search-report').addEventListener('input', () => {
+                renderReports();
+            });
+
+            document.getElementById('search-comment').addEventListener('input', () => {
+                renderComments();
+            });
+
+            // Report Filter Buttons
+            document.querySelectorAll('.filter-report-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-report-btn').forEach(b => {
+                        b.classList.remove('bg-white/10', 'text-white');
+                        b.classList.add('bg-transparent', 'text-slate-400');
+                    });
+                    e.target.classList.add('bg-white/10', 'text-white');
+                    e.target.classList.remove('bg-transparent', 'text-slate-400');
+                    reportFilter = e.target.getAttribute('data-filter');
+                    renderReports();
+                });
+            });
+
+            // Comment Filter Buttons
+            document.querySelectorAll('.filter-comment-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    document.querySelectorAll('.filter-comment-btn').forEach(b => {
+                        b.classList.remove('bg-white/10', 'text-white');
+                        b.classList.add('bg-transparent', 'text-slate-400');
+                    });
+                    e.target.classList.add('bg-white/10', 'text-white');
+                    e.target.classList.remove('bg-transparent', 'text-slate-400');
+                    commentFilter = e.target.getAttribute('data-filter');
+                    renderComments();
+                });
+            });
+        }
+
+        // Login Handler
+        async function attemptLogin(enteredPassword, isAutoLogin = false) {
+            if (!supabaseClient) {
+                Swal.fire({ icon: 'error', title: 'ฐานข้อมูลขัดข้อง', text: 'ไม่ได้เชื่อมต่อ Supabase Client' });
+                return;
+            }
+
+            if (!isAutoLogin) {
+                Swal.fire({
+                    title: 'กำลังยืนยันตัวตน...',
+                    allowOutsideClick: false,
+                    didOpen: () => { Swal.showLoading(); }
+                });
+            }
+
+            try {
+                // Call verification function on Supabase RPC
+                const { data: isValid, error } = await supabaseClient.rpc('verify_admin_password', {
+                    admin_pass: enteredPassword
+                });
+
+                if (error) throw error;
+
+                if (isValid === true) {
+                    adminPassword = enteredPassword;
+                    sessionStorage.setItem('admin_password', enteredPassword);
+                    
+                    document.getElementById('login-overlay').classList.add('hidden');
+                    document.getElementById('admin-content').classList.remove('hidden');
+
+                    if (!isAutoLogin) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'ล็อกอินสำเร็จ!',
+                            text: 'ยินดีต้อนรับสู่ระบบแอดมิน Metalyze',
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    }
+
+                    // Fetch and populate tables
+                    await refreshAllData();
+                } else {
+                    if (isAutoLogin) {
+                        sessionStorage.removeItem('admin_password');
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'รหัสผ่านไม่ถูกต้อง',
+                            text: 'รหัสผ่านที่คุณป้อนไม่ได้รับสิทธิ์เข้าใช้งานหลังบ้าน',
+                            confirmButtonColor: '#f43f5e'
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error("Login verification failed:", err);
+                if (!isAutoLogin) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'เกิดข้อผิดพลาดในการตรวจสอบสิทธิ์',
+                        html: `ไม่สามารถตรวจสอบรหัสผ่านได้ในระบบฐานข้อมูล:<br><br><small class="text-rose-400 font-mono">${err.message}</small><br><br><small class="text-slate-400">กรุณาตรวจสอบว่าท่านได้รันไฟล์ <code>admin_setup.sql</code> ใน Supabase SQL Editor หรือยัง</small>`
+                    });
+                }
+            }
+        }
+
+        // Database data refresh
+        async function refreshAllData() {
+            if (!supabaseClient) return;
+
+            try {
+                // Fetch reports sorted by newest first
+                const { data: reports, error: rError } = await supabaseClient
+                    .from('water_reports')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (rError) throw rError;
+                reportsData = reports || [];
+
+                // Fetch comments sorted by newest first
+                const { data: comments, error: cError } = await supabaseClient
+                    .from('comments')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (cError) throw cError;
+                commentsData = comments || [];
+
+                // Render UI elements
+                updateStatsBanner();
+                renderReports();
+                renderComments();
+
+            } catch (e) {
+                console.error("Fetch admin data error:", e);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ดึงข้อมูลล้มเหลว',
+                    text: 'ไม่สามารถติดต่อฐานข้อมูลเพื่อแสดงผลรายการได้: ' + e.message
+                });
+            }
+        }
+
+        // Update Stats Counters Banner
+        function updateStatsBanner() {
+            const totalReports = reportsData.length;
+            const contaminated = reportsData.filter(r => r.contamination_status === 'contaminated').length;
+            const safe = reportsData.filter(r => r.contamination_status === 'safe').length;
+            const totalComments = commentsData.length;
+
+            document.getElementById('stat-total-reports').textContent = totalReports;
+            document.getElementById('stat-contaminated-reports').textContent = contaminated;
+            document.getElementById('stat-safe-reports').textContent = safe;
+            document.getElementById('stat-total-comments').textContent = totalComments;
+        }
+
+        // Render reports list in table
+        function renderReports() {
+            const tbody = document.getElementById('reports-tbody');
+            const loader = document.getElementById('reports-loader');
+            const emptyState = document.getElementById('reports-empty');
+            const tableContainer = document.getElementById('reports-table-container');
+            const searchQuery = document.getElementById('search-report').value.toLowerCase();
+
+            loader.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            const filtered = reportsData.filter(rep => {
+                // Status matching
+                if (reportFilter === 'safe' && rep.contamination_status !== 'safe') return false;
+                if (reportFilter === 'contaminated' && rep.contamination_status !== 'contaminated') return false;
+
+                // Search matching
+                if (searchQuery) {
+                    const text = `${rep.location_name} ${rep.province} ${rep.district} ${rep.subdistrict} ${rep.reporter_name}`.toLowerCase();
+                    return text.includes(searchQuery);
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                tableContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+
+            filtered.forEach(rep => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition-colors border-b border-white/5 align-middle';
+
+                const date = new Date(rep.created_at).toLocaleString('th-TH', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                const badgeClass = rep.contamination_status === 'contaminated' 
+                    ? 'bg-fluo-rose/10 text-fluo-rose border-fluo-rose/20' 
+                    : 'bg-fluo-emerald/10 text-fluo-emerald border-fluo-emerald/20';
+                
+                const badgeLabel = rep.contamination_status === 'contaminated' ? 'ปนเปื้อนโลหะหนัก' : 'ปลอดภัย';
+                const ppmClass = rep.contamination_status === 'contaminated' ? 'text-fluo-rose font-bold' : 'text-slate-400';
+
+                const reporterText = rep.is_anonymous ? '<span class="text-slate-500 italic"><i class="fa-solid fa-user-secret mr-1"></i>นิรนาม</span>' : (rep.reporter_name || '-');
+                
+                const imageHtml = rep.photo_url 
+                    ? `<img src="${rep.photo_url}" onclick="zoomImage('${rep.photo_url}')" class="w-12 h-8 object-cover rounded border border-white/10 cursor-zoom-in hover:scale-110 transition-transform">`
+                    : '<span class="text-slate-600">ไม่มีภาพ</span>';
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-[10px] text-slate-400">${date}</td>
+                    <td class="py-3 px-4 font-semibold text-slate-200 max-w-[150px] truncate" title="${rep.location_name}">${rep.location_name}</td>
+                    <td class="py-3 px-4 text-slate-400 max-w-[180px] truncate" title="${rep.subdistrict} › ${rep.district} › ${rep.province}">
+                        ${rep.subdistrict} › ${rep.district} › ${rep.province}
+                    </td>
+                    <td class="py-3 px-4">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] border ${badgeClass}">
+                            ${badgeLabel}
+                        </span>
+                        <span class="block text-[9px] text-slate-500 mt-0.5">เรืองแสง: ${rep.fluorescence_level === 'normal' ? 'ปกติ' : 'ลดลง/ดับ'}</span>
+                    </td>
+                    <td class="py-3 px-4 font-mono ${ppmClass}">${rep.ppm_estimate} ppm</td>
+                    <td class="py-3 px-4">${imageHtml}</td>
+                    <td class="py-3 px-4 text-slate-300">${reporterText}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="confirmDeleteReport('${rep.id}', '${rep.location_name}')" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-fluo-rose/10 hover:bg-fluo-rose/20 text-fluo-rose border border-fluo-rose/20 transition-colors" title="ลบรายงาน">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Render comments list in table
+        function renderComments() {
+            const tbody = document.getElementById('comments-tbody');
+            const loader = document.getElementById('comments-loader');
+            const emptyState = document.getElementById('comments-empty');
+            const tableContainer = document.getElementById('comments-table-container');
+            const searchQuery = document.getElementById('search-comment').value.toLowerCase();
+
+            loader.classList.add('hidden');
+            tbody.innerHTML = '';
+
+            const filtered = commentsData.filter(com => {
+                const isGeneral = com.report_id === null;
+
+                // Type matching
+                if (commentFilter === 'general' && !isGeneral) return false;
+                if (commentFilter === 'report' && isGeneral) return false;
+
+                // Search matching
+                if (searchQuery) {
+                    const text = `${com.comment_text} ${com.commenter_name}`.toLowerCase();
+                    return text.includes(searchQuery);
+                }
+
+                return true;
+            });
+
+            if (filtered.length === 0) {
+                tableContainer.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+
+            filtered.forEach(com => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-white/5 transition-colors border-b border-white/5 align-middle';
+
+                const date = new Date(com.created_at).toLocaleString('th-TH', {
+                    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                // Find corresponding report details if present
+                let targetText = '';
+                if (com.report_id) {
+                    const matchedRep = reportsData.find(r => r.id === com.report_id);
+                    if (matchedRep) {
+                        targetText = `<span class="inline-flex items-center text-[10px] text-fluo-cyan font-semibold hover:underline cursor-pointer" onclick="viewLinkedReport('${com.report_id}')">
+                            <i class="fa-solid fa-file-invoice mr-1"></i> รายงาน: ${matchedRep.location_name}
+                        </span>`;
+                    } else {
+                        targetText = `<span class="text-slate-500 italic text-[10px]">รายงานถูกลบแล้ว</span>`;
+                    }
+                } else {
+                    targetText = `<span class="inline-flex items-center px-1.5 py-0.5 rounded bg-fluo-violet/10 text-fluo-violet border border-fluo-violet/20 text-[9px] font-semibold">
+                        <i class="fa-solid fa-comments mr-1"></i> กระดานเสวนาทั่วไป
+                    </span>`;
+                }
+
+                const writerText = com.is_anonymous ? '<span class="text-slate-500 italic"><i class="fa-solid fa-user-secret mr-1"></i>นิรนาม</span>' : (com.commenter_name || '-');
+
+                tr.innerHTML = `
+                    <td class="py-3 px-4 font-mono text-[10px] text-slate-400">${date}</td>
+                    <td class="py-3 px-4">${targetText}</td>
+                    <td class="py-3 px-4 text-slate-300 font-semibold">${writerText}</td>
+                    <td class="py-3 px-4 text-slate-200 max-w-xs break-words whitespace-pre-line">${com.comment_text}</td>
+                    <td class="py-3 px-4 text-center">
+                        <button onclick="confirmDeleteComment('${com.id}')" class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-fluo-rose/10 hover:bg-fluo-rose/20 text-fluo-rose border border-fluo-rose/20 transition-colors" title="ลบความคิดเห็น">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // Image Zoom Modal helper using SweetAlert
+        function zoomImage(url) {
+            Swal.fire({
+                imageUrl: url,
+                imageAlt: 'Water Sample Environment Location',
+                showConfirmButton: false,
+                background: 'rgba(15, 23, 42, 0.95)',
+                backdrop: 'rgba(3, 7, 18, 0.8)',
+                width: 'auto',
+                customClass: {
+                    image: 'rounded-2xl border border-white/10 max-h-[70vh] object-contain'
+                }
+            });
+        }
+
+        // View Linked Report from comments tab
+        function viewLinkedReport(reportId) {
+            const matchedRep = reportsData.find(r => r.id === reportId);
+            if (!matchedRep) return;
+
+            const date = new Date(matchedRep.created_at).toLocaleString('th-TH');
+            const isContam = matchedRep.contamination_status === 'contaminated';
+            const badge = isContam 
+                ? '<span class="px-2 py-0.5 rounded text-xs bg-rose-500/10 text-rose-400 border border-rose-500/20 font-bold">🔴 พบโลหะหนัก</span>' 
+                : '<span class="px-2 py-0.5 rounded text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold">🟢 ปลอดภัย</span>';
+
+            Swal.fire({
+                title: matchedRep.location_name,
+                html: `
+                    <div class="text-left text-xs space-y-3 font-sans mt-3 text-slate-300">
+                        <div><strong>จังหวัด/อำเภอ:</strong> ${matchedRep.subdistrict} › ${matchedRep.district} › ${matchedRep.province}</div>
+                        <div><strong>วันเวลาที่โพสต์:</strong> ${date}</div>
+                        <div><strong>ผู้บันทึก:</strong> ${matchedRep.is_anonymous ? 'ผู้ใช้นิรนาม' : (matchedRep.reporter_name || 'ผู้ใช้นิรนาม')}</div>
+                        <div class="flex items-center gap-2"><strong>ผลทดสอบ:</strong> ${badge} (${matchedRep.ppm_estimate} ppm)</div>
+                        <div class="bg-white/5 p-3 rounded-lg border border-white/5 mt-2">
+                            <strong>หมายเหตุ/เบาะแส:</strong><br>
+                            <p class="mt-1 text-slate-400 whitespace-pre-wrap">${matchedRep.notes || 'ไม่มีข้อมูลเพิ่มเติม'}</p>
+                        </div>
+                    </div>
+                `,
+                imageUrl: matchedRep.photo_url,
+                imageWidth: 320,
+                imageHeight: 200,
+                imageAlt: 'Water Sample environment',
+                confirmButtonText: 'ปิดหน้ารายละเอียด',
+                confirmButtonColor: '#06b6d4',
+                background: '#0f172a',
+                color: '#f3f4f6'
+            });
+        }
+
+        // DELETE REPORT OPERATION
+        function confirmDeleteReport(reportId, locationName) {
+            Swal.fire({
+                title: 'ยืนยันการลบรายงาน?',
+                html: `คุณกำลังทำการลบรายงานคุณภาพน้ำที่ <strong>"${locationName}"</strong><br><br><span class="text-rose-400 text-xs font-semibold"><i class="fa-solid fa-circle-exclamation mr-1"></i> คำเตือน: คอมเมนต์ที่เกี่ยวข้องทั้งหมดจะถูกลบออกไปด้วยโดยอัตโนมัติ!</span>`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f43f5e',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'ใช่, ฉันต้องการลบ!',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'กำลังทำการลบ...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    try {
+                        const { data: success, error } = await supabaseClient.rpc('delete_water_report', {
+                            report_id: reportId,
+                            admin_pass: adminPassword
+                        });
+
+                        if (error) throw error;
+
+                        if (success === true) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'ลบรายงานคุณภาพน้ำเสร็จสิ้น',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                            await refreshAllData();
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'ล้มเหลว',
+                                text: 'ไม่ได้รับการอนุญาต หรือรหัสผ่านหมดอายุ กรุณาล็อกอินใหม่อีกครั้ง'
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Delete report RPC error:", err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'เกิดข้อผิดพลาดในการสั่งลบ',
+                            text: err.message
+                        });
+                    }
+                }
+            });
+        }
+
+        // DELETE COMMENT OPERATION
+        function confirmDeleteComment(commentId) {
+            Swal.fire({
+                title: 'ยืนยันการลบความคิดเห็น?',
+                text: 'การดำเนินรายการนี้จะไม่สามารถกู้คืนข้อความความคิดเห็นนี้กลับมาได้อีก',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#f43f5e',
+                cancelButtonColor: '#475569',
+                confirmButtonText: 'ใช่, ลบข้อความนี้!',
+                cancelButtonText: 'ยกเลิก'
+            }).then(async (result) => {
+                if (result.isConfirmed) {
+                    Swal.fire({
+                        title: 'กำลังทำการลบ...',
+                        allowOutsideClick: false,
+                        didOpen: () => { Swal.showLoading(); }
+                    });
+
+                    try {
+                        const { data: success, error } = await supabaseClient.rpc('delete_comment', {
+                            comment_id: commentId,
+                            admin_pass: adminPassword
+                        });
+
+                        if (error) throw error;
+
+                        if (success === true) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'ลบความคิดเห็นเรียบร้อยแล้ว',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                            await refreshAllData();
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'ล้มเหลว',
+                                text: 'ไม่ได้รับการอนุญาต หรือรหัสผ่านไม่ถูกต้อง'
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Delete comment RPC error:", err);
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'เกิดข้อผิดพลาดในการลบความคิดเห็น',
+                            text: err.message
+                        });
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
