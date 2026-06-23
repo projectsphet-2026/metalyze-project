@@ -1,0 +1,20 @@
+name: Keep Supabase Alive
+
+on:
+  schedule:
+    # รันทุกวันเวลา 12:00 UTC (19:00 น. เวลาไทย)
+    - cron: '0 12 * * *'
+  workflow_dispatch: # เปิดให้กดรันเองแบบแมนนวลได้จากหน้า GitHub Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase API to prevent pause
+        run: |
+          # ใช้ cURL ส่งคำขอเพื่อดึงข้อมูลแถวแรกของตาราง water_reports เพื่อสร้าง API Activity
+          # หมายเหตุ: คีย์ anon นี้เป็นคีย์สาธารณะที่ถูกเผยแพร่อยู่บนหน้าบ้าน (index.html) อยู่แล้ว จึงปลอดภัยที่จะระบุในนี้
+          # หรือหากต้องการใช้ GitHub Secrets สามารถเปลี่ยนเป็น ${{ secrets.SUPABASE_ANON_KEY }} ได้
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" -X GET "https://hhiomwcygqhoxsqcemtk.supabase.co/rest/v1/water_reports?limit=1" \
+          -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoaW9td2N5Z3Fob3hzcWNlbXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjY5NjcsImV4cCI6MjA5NzgwMjk2N30.VB-3GPykOdgBp2HK88SBOcaGUrzBs9h3iGht-9Y3pdY" \
+          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoaW9td2N5Z3Fob3hzcWNlbXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjY5NjcsImV4cCI6MjA5NzgwMjk2N30.VB-3GPykOdgBp2HK88SBOcaGUrzBs9h3iGht-9Y3pdY"
