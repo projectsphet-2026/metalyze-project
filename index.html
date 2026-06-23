@@ -1,0 +1,1878 @@
+<!DOCTYPE html>
+<html lang="th" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metalyze - ระบบแชร์ข้อมูลคุณภาพน้ำปนเปื้อนโลหะหนักด้วย Metadot</title>
+    
+    <!-- IBM Plex Sans Thai Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Tailwind CSS Play CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet Map CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- SweetAlert 2 -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- Tailwind Configuration for Custom Theme & Fonts -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"IBM Plex Sans Thai"', 'sans-serif'],
+                    },
+                    colors: {
+                        dark: {
+                            950: '#030712',
+                            900: '#0f172a',
+                            800: '#1e293b',
+                            700: '#334155',
+                        },
+                        fluo: {
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            violet: '#8b5cf6',
+                            yellow: '#fbbf24'
+                        }
+                    },
+                    boxShadow: {
+                        'glow-cyan': '0 0 15px rgba(6, 182, 212, 0.5)',
+                        'glow-emerald': '0 0 15px rgba(16, 185, 129, 0.5)',
+                        'glow-rose': '0 0 15px rgba(244, 63, 94, 0.5)',
+                        'glow-violet': '0 0 15px rgba(139, 92, 246, 0.5)',
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Custom CSS styles for Map and Glow Effects -->
+    <style>
+        body {
+            background-color: #030712;
+            color: #f3f4f6;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-input {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f3f4f6;
+        }
+
+        .glass-input:focus {
+            outline: none;
+            border-color: #06b6d4;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.3);
+        }
+
+        /* Custom marker glow styles */
+        .glow-marker-safe {
+            background: #10b981;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #10b981, 0 0 20px #10b981;
+        }
+
+        .glow-marker-danger {
+            background: #f43f5e;
+            border: 2px solid #ffffff;
+            border-radius: 50%;
+            box-shadow: 0 0 12px #f43f5e, 0 0 20px #f43f5e;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #030712;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        /* Leaflet popups customization */
+        .leaflet-popup-content-wrapper {
+            background: rgba(15, 23, 42, 0.95) !important;
+            color: #f3f4f6 !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+            backdrop-filter: blur(8px);
+            border-radius: 12px !important;
+            font-family: "IBM Plex Sans Thai", sans-serif;
+        }
+        .leaflet-popup-tip {
+            background: rgba(15, 23, 42, 0.95) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
+
+        /* Glowing text effect */
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6), 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+        .neon-text-emerald {
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.6), 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .neon-text-rose {
+            text-shadow: 0 0 8px rgba(244, 63, 94, 0.6), 0 0 20px rgba(244, 63, 94, 0.4);
+        }
+
+        /* Simulation UV Tube - Custom Cuvette Glows based on photo */
+        .uv-control {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(15, 23, 42, 0.95) 70%, rgba(3, 7, 18, 0.95) 100%);
+            border: 1px solid rgba(139, 92, 246, 0.15);
+            box-shadow: inset 0 0 15px rgba(139, 92, 246, 0.05);
+        }
+        .uv-glowing-cds {
+            background: radial-gradient(circle, rgba(6, 214, 160, 0.9) 0%, rgba(6, 182, 212, 0.6) 45%, rgba(6, 182, 212, 0) 75%);
+            filter: drop-shadow(0 0 18px rgba(6, 182, 212, 0.8)) drop-shadow(0 0 6px rgba(6, 214, 160, 0.6));
+        }
+        .uv-glowing-25 {
+            background: radial-gradient(circle, rgba(6, 214, 160, 0.75) 0%, rgba(6, 182, 212, 0.5) 45%, rgba(6, 182, 212, 0) 75%);
+            filter: drop-shadow(0 0 14px rgba(6, 182, 212, 0.65));
+        }
+        .uv-glowing-50 {
+            background: radial-gradient(circle, rgba(147, 197, 253, 0.7) 0%, rgba(6, 182, 212, 0.3) 45%, rgba(139, 92, 246, 0.15) 75%);
+            filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.45));
+        }
+        .uv-glowing-100 {
+            background: radial-gradient(circle, rgba(147, 197, 253, 0.6) 0%, rgba(139, 92, 246, 0.35) 50%, rgba(139, 92, 246, 0) 75%);
+            filter: drop-shadow(0 0 8px rgba(139, 92, 246, 0.4));
+        }
+        .uv-glowing-200 {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.45) 0%, rgba(99, 102, 241, 0.2) 50%, rgba(99, 102, 241, 0) 75%);
+            filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.3));
+        }
+        .uv-glowing-300 {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.3) 0%, rgba(15, 23, 42, 0.8) 60%, rgba(3, 7, 18, 0.95) 100%);
+            filter: drop-shadow(0 0 4px rgba(139, 92, 246, 0.2));
+        }
+        .uv-glowing-400 {
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, rgba(15, 23, 42, 0.95) 75%, rgba(3, 7, 18, 0.95) 100%);
+            filter: drop-shadow(0 0 2px rgba(139, 92, 246, 0.1));
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-b from-dark-950 via-slate-950 to-dark-900 min-h-screen text-slate-100 font-sans antialiased pb-20">
+
+    <!-- Glowing Background blobs for premium vibe -->
+    <div class="absolute top-0 left-1/4 w-96 h-96 bg-fluo-cyan/10 rounded-full blur-[100px] pointer-events-none -z-10"></div>
+    <div class="absolute top-[800px] right-10 w-96 h-96 bg-fluo-violet/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+    <div class="absolute bottom-1/4 left-10 w-96 h-96 bg-fluo-emerald/5 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-white/5 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo -->
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-fluo-cyan to-fluo-violet flex items-center justify-center text-dark-950 font-bold text-xl shadow-glow-cyan">
+                        <i class="fa-solid fa-droplet"></i>
+                    </div>
+                    <div>
+                        <span class="text-2xl font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-fluo-cyan to-white font-mono">METALYZE</span>
+                        <span class="text-xs block text-slate-400 font-light -mt-1">Powered by Metadot CDs</span>
+                    </div>
+                </div>
+
+                <!-- Navigation menu links -->
+                <nav class="hidden md:flex space-x-8 text-sm font-medium">
+                    <a href="#hero" class="text-slate-300 hover:text-fluo-cyan transition-colors"><i class="fa-solid fa-circle-info mr-1.5"></i>ความรู้เครื่องมือ</a>
+                    <a href="#map-section" class="text-slate-300 hover:text-fluo-cyan transition-colors"><i class="fa-solid fa-map-location-dot mr-1.5"></i>แผนที่เฝ้าระวัง</a>
+                    <a href="#report-form-section" class="text-slate-300 hover:text-fluo-cyan transition-colors"><i class="fa-solid fa-file-signature mr-1.5"></i>เพิ่มข้อมูลตรวจสอบ</a>
+                    <a href="#feed-section" class="text-slate-300 hover:text-fluo-cyan transition-colors"><i class="fa-solid fa-list-check mr-1.5"></i>รายงานล่าสุด</a>
+                    <a href="#discussion-section" class="text-slate-300 hover:text-fluo-cyan transition-colors"><i class="fa-solid fa-comments mr-1.5"></i>กระดานพูดคุย</a>
+                </nav>
+
+                <!-- Action Button -->
+                <div>
+                    <a href="#report-form-section" class="inline-flex items-center px-4 py-2 rounded-xl text-xs font-semibold tracking-wider text-dark-950 bg-gradient-to-r from-fluo-cyan to-fluo-emerald hover:from-fluo-emerald hover:to-fluo-cyan transition-all duration-300 shadow-glow-cyan transform hover:-translate-y-0.5">
+                        <i class="fa-solid fa-plus-circle mr-1.5 text-sm"></i> แจ้งผลตรวจน้ำ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 space-y-20">
+
+        <!-- 1. HERO SECTION & INSTRUMENT INTRODUCTION -->
+        <section id="hero" class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center py-8">
+            <!-- Left Info column -->
+            <div class="lg:col-span-7 space-y-6">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-fluo-cyan/10 text-fluo-cyan border border-fluo-cyan/20">
+                    <i class="fa-solid fa-shield-halved mr-1.5 animate-pulse"></i> โครงการเฝ้าระวังแหล่งน้ำชุมชน
+                </span>
+                
+                <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight leading-tight">
+                    แชร์คุณภาพน้ำ <br class="hidden sm:inline">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-fluo-cyan via-fluo-violet to-fluo-emerald">
+                        เฝ้าระวังภัยโลหะหนัก
+                    </span>
+                </h1>
+
+                <p class="text-slate-400 text-lg leading-relaxed max-w-2xl">
+                    ร่วมปกป้องชุมชนด้วยเครื่องตรวจสอบโลหะหนักในน้ำ <strong class="text-slate-200">"Metadot"</strong> นวัตกรรมตรวจวิเคราะห์คุณภาพน้ำอย่างรวดเร็ว โดยใช้ <span class="text-fluo-yellow">Carbon dots (CDs) จากกากกาแฟ (Coffee Waste)</span> เพื่อตรวจวัดสารปนเปื้อนในระดับส่วนในล้านส่วน (ppm) ได้ด้วยตนเอง
+                </p>
+
+                <!-- Quick statistics overview dashboard -->
+                <div class="grid grid-cols-3 gap-4 pt-4">
+                    <div class="glass-panel p-4 rounded-2xl relative overflow-hidden">
+                        <div class="absolute -right-3 -bottom-3 text-4xl text-slate-700/20"><i class="fa-solid fa-flask"></i></div>
+                        <span class="text-xs text-slate-400 block mb-1">ทดสอบแล้วทั้งหมด</span>
+                        <span id="stat-total" class="text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 font-mono">0</span> <span class="text-xs text-slate-400">จุด</span>
+                    </div>
+                    <div class="glass-panel p-4 rounded-2xl border-fluo-emerald/10 relative overflow-hidden">
+                        <div class="absolute -right-3 -bottom-3 text-4xl text-fluo-emerald/10"><i class="fa-solid fa-circle-check"></i></div>
+                        <span class="text-xs text-slate-400 block mb-1">น้ำปกติ (ปลอดภัย)</span>
+                        <span id="stat-safe" class="text-3xl font-extrabold text-fluo-emerald neon-text-emerald font-mono">0</span> <span class="text-xs text-slate-400">จุด</span>
+                    </div>
+                    <div class="glass-panel p-4 rounded-2xl border-fluo-rose/10 relative overflow-hidden">
+                        <div class="absolute -right-3 -bottom-3 text-4xl text-fluo-rose/10"><i class="fa-solid fa-triangle-exclamation"></i></div>
+                        <span class="text-xs text-slate-400 block mb-1">พบปนเปื้อนโลหะหนัก</span>
+                        <span id="stat-danger" class="text-3xl font-extrabold text-fluo-rose neon-text-rose font-mono">0</span> <span class="text-xs text-slate-400">จุด</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Interactive simulation column -->
+            <div class="lg:col-span-5">
+                <div class="glass-panel p-6 sm:p-8 rounded-3xl relative border-white/10 shadow-glass">
+                    <!-- Glow effect indicator -->
+                    <div class="absolute -top-4 -left-4 w-12 h-12 bg-fluo-cyan/20 rounded-full blur-md"></div>
+                    
+                    <h3 class="text-lg font-bold mb-4 flex items-center text-slate-200">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2 text-fluo-cyan"></i> 
+                        หลักการทำงานของเครื่อง Metadot
+                    </h3>
+
+                    <!-- Visual test simulator -->
+                    <div class="bg-dark-950/80 rounded-2xl p-6 border border-white/5 space-y-6">
+                        <div class="flex justify-between items-center text-xs text-slate-400">
+                            <span>ตัวอย่างน้ำ + Carbon dots (CDs)</span>
+                            <span class="flex items-center"><i class="fa-solid fa-circle text-[8px] text-fluo-cyan mr-1.5 animate-pulse"></i> UV Light 365nm</span>
+                        </div>
+
+                        <!-- Fluid container under UV -->
+                        <div class="relative h-28 rounded-xl flex items-center justify-center transition-all duration-500 overflow-hidden border border-white/10" id="sim-fluid-bg">
+                            <!-- Liquid glow -->
+                            <div class="absolute inset-0 transition-opacity duration-700 opacity-100" id="sim-glow-layer"></div>
+                            
+                            <!-- Liquid animation content -->
+                            <div class="z-10 text-center space-y-1">
+                                <span class="text-xs block tracking-widest text-white/70" id="sim-status-label">เรืองแสงความสว่างสูงสุด</span>
+                                <span class="text-sm font-bold text-white uppercase tracking-wider" id="sim-status-value">ปลอดภัย (0.0 ppm)</span>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="space-y-2">
+                            <div class="flex justify-between text-xs text-slate-400">
+                                <span>ระดับความปนเปื้อนโลหะหนัก</span>
+                                <span class="text-fluo-cyan font-bold font-mono" id="sim-ppm-text">0.0 ppm</span>
+                            </div>
+                            <input type="range" id="sim-range" min="0" max="7" step="1" value="1"
+                                class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-fluo-cyan">
+                            <div class="flex justify-between text-[8px] text-slate-500 font-mono tracking-tighter">
+                                <span>น้ำเปล่า</span>
+                                <span>0 ppm</span>
+                                <span>25 ppm</span>
+                                <span>50 ppm</span>
+                                <span>100 ppm</span>
+                                <span>200 ppm</span>
+                                <span>300 ppm</span>
+                                <span>400 ppm</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Short scientific detail -->
+                    <div class="mt-4 text-xs text-slate-400 leading-relaxed bg-white/5 p-3 rounded-xl">
+                        <i class="fa-solid fa-circle-info text-fluo-cyan mr-1.5"></i>
+                        กากกาแฟถูกสังเคราะห์เป็นคาร์บอนดอท (CDs) ที่มีสมบัติเรืองแสงภายใต้แสง UV เมื่อนำมาผสมกับตัวอย่างน้ำที่มีไอออนโลหะหนัก โลหะหนักจะเข้าไปขัดขวางและลดประสิทธิภาพการเรืองแสง (Fluorescence Quenching) ทำให้เรืองแสงมืดลงเรื่อยๆ ตามระดับความปนเปื้อน
+                    </div>
+
+                    <!-- Real experiment photo -->
+                    <div class="mt-4 space-y-2">
+                        <span class="text-[10px] text-slate-400 font-semibold block uppercase tracking-wider"><i class="fa-solid fa-camera mr-1 text-fluo-cyan"></i> ภาพผลการทดสอบจริงภายใต้แสง UV (365nm):</span>
+                        <div class="relative rounded-xl overflow-hidden border border-white/10 group">
+                            <img src="metadot-cuvettes.jpg?v=2" alt="ผลการเรืองแสงของ CDs เมื่อมีโลหะหนักปนเปื้อน" class="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105">
+                            <div class="absolute bottom-0 inset-x-0 bg-gradient-to-t from-dark-950 via-dark-950/80 to-transparent p-2 text-[9px] text-slate-300 flex justify-between">
+                                <span>← ซ้ายสุด (หลอดที่ 8): น้ำเปล่า Control</span>
+                                <span>ขวาสุด: โลหะเยอะมาก (ดับแสง) →</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. WATCHDOG INTERACTIVE MAP SECTION -->
+        <section id="map-section" class="space-y-6 scroll-mt-24">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold flex items-center tracking-tight">
+                        <i class="fa-solid fa-map-location-dot mr-3 text-fluo-cyan"></i>
+                        แผนที่รายงานคุณภาพน้ำปนเปื้อนโลหะหนัก
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-1">
+                        คลิกดูรายละเอียดของจุดที่ปักหมุด เพื่อเช็กความปลอดภัยของแหล่งน้ำตามข้อมูลที่สมาชิกร่วมกันแจ้งเข้ามา
+                    </p>
+                </div>
+                <div class="flex space-x-2 text-xs">
+                    <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-fluo-emerald/10 text-fluo-emerald border border-fluo-emerald/20">
+                        <span class="w-2.5 h-2.5 rounded-full bg-fluo-emerald mr-2 shadow-glow-emerald"></span> ปลอดภัย (ปกติ)
+                    </span>
+                    <span class="inline-flex items-center px-3 py-1.5 rounded-xl bg-fluo-rose/10 text-fluo-rose border border-fluo-rose/20">
+                        <span class="w-2.5 h-2.5 rounded-full bg-fluo-rose mr-2 shadow-glow-rose"></span> พบโลหะหนัก (ปนเปื้อน)
+                    </span>
+                </div>
+            </div>
+
+            <!-- Leaflet Map Container -->
+            <div class="glass-panel p-2 rounded-3xl overflow-hidden shadow-glass border-white/10">
+                <div id="map" class="w-full h-[500px] rounded-2xl z-10">
+                    <div class="flex items-center justify-center h-full text-slate-500 font-medium">
+                        <i class="fa-solid fa-spinner animate-spin mr-2"></i> กำลังโหลดแผนที่...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. SUBMIT WATER TEST RECORD FORM SECTION -->
+        <section id="report-form-section" class="scroll-mt-24">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center space-y-2 mb-10">
+                    <h2 class="text-2xl sm:text-3xl font-extrabold flex items-center justify-center tracking-tight">
+                        <i class="fa-solid fa-file-pen mr-3 text-fluo-violet"></i>
+                        บันทึกรายงานการตรวจสอบคุณภาพน้ำ
+                    </h2>
+                    <p class="text-slate-400 text-sm">
+                        กรอกข้อมูลผลตรวจน้ำที่คุณใช้เครื่อง Metadot ตรวจสอบ เพื่อประโยชน์ในการเฝ้าระวังร่วมกัน
+                    </p>
+                </div>
+
+                <!-- Form Card wrapper -->
+                <form id="report-form" class="glass-panel p-6 sm:p-10 rounded-3xl border-white/10 shadow-glass space-y-8">
+                    
+                    <!-- Section 1: User / Reporter Info -->
+                    <div class="space-y-4">
+                        <h4 class="text-md font-bold text-transparent bg-clip-text bg-gradient-to-r from-fluo-violet to-fluo-cyan flex items-center border-b border-white/10 pb-2">
+                            <span class="w-6 h-6 rounded bg-fluo-violet/10 text-fluo-violet flex items-center justify-center mr-2 text-xs"><i class="fa-solid fa-user"></i></span>
+                            1. ข้อมูลผู้บันทึกรายงาน
+                        </h4>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+                            <div>
+                                <label for="reporter_name" class="block text-xs font-semibold text-slate-300 mb-1.5">ชื่อผู้บันทึก</label>
+                                <input type="text" id="reporter_name" placeholder="ระบุชื่อของคุณ (เช่น สมชาย รักษ์น้ำ)" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm">
+                            </div>
+                            
+                            <div class="pb-2.5">
+                                <label class="relative flex items-center cursor-pointer select-none">
+                                    <input type="checkbox" id="is_anonymous" class="sr-only peer">
+                                    <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-fluo-violet"></div>
+                                    <span class="ml-3 text-sm font-medium text-slate-300 hover:text-white transition-colors">
+                                        <i class="fa-solid fa-user-secret mr-1 text-slate-400"></i> ซ่อนชื่อผู้บันทึก (แสดงเป็นผู้ใช้นิรนาม)
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Water Test Result with Metadot -->
+                    <div class="space-y-4">
+                        <h4 class="text-md font-bold text-transparent bg-clip-text bg-gradient-to-r from-fluo-violet to-fluo-cyan flex items-center border-b border-white/10 pb-2">
+                            <span class="w-6 h-6 rounded bg-fluo-violet/10 text-fluo-violet flex items-center justify-center mr-2 text-xs"><i class="fa-solid fa-vial"></i></span>
+                            2. ผลการตรวจสอบด้วย Metadot
+                        </h4>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <!-- Fluorescence levels select -->
+                            <div>
+                                <label for="fluorescence_level" class="block text-xs font-semibold text-slate-300 mb-1.5">ผลการเรืองแสงของ CDs</label>
+                                <select id="fluorescence_level" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+                                    <option value="" disabled selected>-- เลือกผลตรวจ --</option>
+                                    <option value="normal" class="bg-dark-900">เรืองแสงปกติ (ความสว่างคงเดิม)</option>
+                                    <option value="decreased" class="bg-dark-900">การเรืองแสงลดลง / ดับลง</option>
+                                </select>
+                            </div>
+
+                            <!-- Contamination Status Auto-derived, or confirmed -->
+                            <div>
+                                <label for="contamination_status" class="block text-xs font-semibold text-slate-300 mb-1.5">สถานะการปนเปื้อนโลหะหนัก</label>
+                                <select id="contamination_status" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm font-semibold" required>
+                                    <option value="" disabled selected>-- จะคำนวณอัตโนมัติ --</option>
+                                    <option value="safe" class="bg-dark-900 text-fluo-emerald">🟢 ปลอดภัย (ไม่พบโลหะหนัก)</option>
+                                    <option value="contaminated" class="bg-dark-900 text-fluo-rose">🔴 ตรวจพบโลหะหนักเจือปน</option>
+                                </select>
+                            </div>
+
+                            <!-- PPM level estimate -->
+                            <div>
+                                <label for="ppm_estimate" class="block text-xs font-semibold text-slate-300 mb-1.5">ระดับความเข้มข้นโดยประมาณ</label>
+                                <select id="ppm_estimate" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+                                    <option value="" disabled selected>-- เลือกความเข้มข้น --</option>
+                                    <option value="0" class="bg-dark-900">0 ppm (ปลอดภัย)</option>
+                                    <option value="25" class="bg-dark-900">25 ppm</option>
+                                    <option value="50" class="bg-dark-900">50 ppm</option>
+                                    <option value="100" class="bg-dark-900">100 ppm</option>
+                                    <option value="200" class="bg-dark-900">200 ppm (อันตราย)</option>
+                                    <option value="300" class="bg-dark-900">300 ppm (อันตราย)</option>
+                                    <option value="400" class="bg-dark-900">400 ppm (อันตรายสูง)</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Location Details & GPS Picker -->
+                    <div class="space-y-4">
+                        <h4 class="text-md font-bold text-transparent bg-clip-text bg-gradient-to-r from-fluo-violet to-fluo-cyan flex items-center border-b border-white/10 pb-2">
+                            <span class="w-6 h-6 rounded bg-fluo-violet/10 text-fluo-violet flex items-center justify-center mr-2 text-xs"><i class="fa-solid fa-map-pin"></i></span>
+                            3. ตำแหน่งสถานที่เก็บตัวอย่างน้ำ
+                        </h4>
+
+                        <!-- Address Dropdown cascading selection -->
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                            <div>
+                                <label for="province" class="block text-xs font-semibold text-slate-300 mb-1.5">จังหวัด</label>
+                                <select id="province" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required disabled>
+                                    <option value="">กำลังโหลดข้อมูล...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="district" class="block text-xs font-semibold text-slate-300 mb-1.5">อำเภอ / เขต</label>
+                                <select id="district" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required disabled>
+                                    <option value="">เลือกจังหวัดก่อน...</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="subdistrict" class="block text-xs font-semibold text-slate-300 mb-1.5">ตำบล / แขวง</label>
+                                <select id="subdistrict" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required disabled>
+                                    <option value="">เลือกอำเภอก่อน...</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Specific Location name -->
+                        <div>
+                            <label for="location_name" class="block text-xs font-semibold text-slate-300 mb-1.5">ชื่อสถานที่หรือจุดอ้างอิงเฉพาะ</label>
+                            <input type="text" id="location_name" placeholder="ระบุตำแหน่งรายละเอียดเพิ่ม (เช่น สะพานข้ามคลอง A ห่างจากถนนใหญ่ 100 เมตร)" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+                        </div>
+
+                        <!-- GPS Coordinates picking -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            <!-- Lat/Long manual/automatic inputs -->
+                            <div class="lg:col-span-4 space-y-4">
+                                <div class="bg-dark-950/60 p-4 rounded-2xl border border-white/5 space-y-4">
+                                    <span class="text-xs text-slate-400 font-bold block mb-1">ระบุพิกัด GPS</span>
+                                    
+                                    <div>
+                                        <label for="latitude" class="block text-[10px] font-semibold text-slate-400 mb-1">Latitude (ละติจูด)</label>
+                                        <input type="number" step="any" id="latitude" placeholder="เช่น 13.736" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs" required>
+                                    </div>
+                                    <div>
+                                        <label for="longitude" class="block text-[10px] font-semibold text-slate-400 mb-1">Longitude (ลองจิจูด)</label>
+                                        <input type="number" step="any" id="longitude" placeholder="เช่น 100.523" class="w-full px-3 py-1.5 rounded-lg glass-input text-xs" required>
+                                    </div>
+
+                                    <div class="pt-2">
+                                        <button type="button" id="btn-get-gps" class="w-full flex items-center justify-center py-2 px-3 bg-fluo-violet/20 hover:bg-fluo-violet/30 border border-fluo-violet/40 hover:border-fluo-violet/60 text-fluo-violet rounded-xl text-xs font-semibold transition-all duration-300">
+                                            <i class="fa-solid fa-location-crosshairs mr-1.5 animate-pulse"></i> ดึงพิกัด GPS ปัจจุบัน
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Mini-map picker -->
+                            <div class="lg:col-span-8 space-y-2">
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="text-slate-400"><i class="fa-solid fa-circle-info text-fluo-cyan mr-1"></i> แผนที่เลือกพิกัด (ลากหมุดหรือคลิกบนแผนที่เพื่อดึงค่าได้)</span>
+                                </div>
+                                <div class="glass-panel p-1.5 rounded-2xl border-white/5">
+                                    <div id="mini-map" class="w-full h-44 rounded-xl z-10"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Photo and Notes -->
+                    <div class="space-y-4">
+                        <h4 class="text-md font-bold text-transparent bg-clip-text bg-gradient-to-r from-fluo-violet to-fluo-cyan flex items-center border-b border-white/10 pb-2">
+                            <span class="w-6 h-6 rounded bg-fluo-violet/10 text-fluo-violet flex items-center justify-center mr-2 text-xs"><i class="fa-solid fa-camera"></i></span>
+                            4. รูปภาพสถานที่และรายละเอียดเพิ่มเติม
+                        </h4>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <!-- Image Input with Live Preview -->
+                            <div class="space-y-3">
+                                <label class="block text-xs font-semibold text-slate-300">รูปภาพสภาพแวดล้อม / สถานที่ตรวจสอบ</label>
+                                <div class="relative group cursor-pointer border-2 border-dashed border-slate-700 hover:border-fluo-violet/50 rounded-2xl bg-dark-950/40 p-4 transition-all duration-300 flex flex-col items-center justify-center min-h-[140px]" id="upload-container">
+                                    <input type="file" id="photo_file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20">
+                                    
+                                    <!-- Default Placeholder view -->
+                                    <div class="text-center space-y-2 z-10" id="upload-placeholder">
+                                        <i class="fa-solid fa-cloud-arrow-up text-3xl text-slate-500 group-hover:text-fluo-violet transition-colors"></i>
+                                        <div class="text-xs text-slate-300 font-semibold">อัปโหลดภาพสถานที่</div>
+                                        <div class="text-[10px] text-slate-500">รองรับไฟล์รูปภาพทั่วไป ขนาดไม่เกิน 5MB</div>
+                                    </div>
+
+                                    <!-- Selected Image Preview view -->
+                                    <div class="hidden w-full h-full flex flex-col items-center justify-center space-y-2 z-10" id="upload-preview-container">
+                                        <img id="upload-preview" src="#" alt="Preview" class="max-h-24 max-w-full rounded-lg shadow-md border border-white/10">
+                                        <span id="photo-filename" class="text-[10px] text-slate-400 block truncate max-w-xs">filename.png</span>
+                                        <button type="button" id="btn-remove-photo" class="text-[10px] text-fluo-rose hover:underline z-30"><i class="fa-solid fa-trash-can mr-1"></i> ลบรูปภาพ</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Additional Notes -->
+                            <div>
+                                <label for="notes" class="block text-xs font-semibold text-slate-300 mb-1.5">รายละเอียดเพิ่มเติม / ข้อสังเกต / เบาะแสต้นตอปัญหา</label>
+                                <textarea id="notes" rows="6" placeholder="เช่น สีของน้ำมีกลิ่น หรือลักษณะเด่นของลำคลอง รวมถึงข้อสันนิษฐานแหล่งปนเปื้อน เช่น ใกล้เคียงมีโรงชุบโลหะหรือการทิ้งขยะอุตสาหกรรม..." class="w-full px-4 py-2 rounded-xl glass-input text-sm"></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Submit Actions -->
+                    <div class="pt-4 flex justify-end">
+                        <button type="submit" id="btn-submit" class="w-full sm:w-auto inline-flex items-center justify-center px-8 py-3.5 rounded-xl text-sm font-semibold tracking-wider text-dark-950 bg-gradient-to-r from-fluo-cyan via-fluo-violet to-fluo-emerald hover:shadow-glow-cyan hover:scale-[1.02] active:scale-95 transition-all duration-300">
+                            <i class="fa-solid fa-paper-plane mr-2 text-sm"></i> บันทึกและแชร์ข้อมูล
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </section>
+
+        <!-- 4. FEED / RECENT RECORDS TABLE SECTION -->
+        <section id="feed-section" class="space-y-6 scroll-mt-24">
+            <div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold flex items-center tracking-tight">
+                        <i class="fa-solid fa-list-check mr-3 text-fluo-emerald"></i>
+                        ข้อมูลการทดสอบคุณภาพน้ำล่าสุด
+                    </h2>
+                    <p class="text-slate-400 text-sm mt-1">
+                        ค้นหาและกรองข้อมูลแหล่งน้ำตามพื้นที่และผลลัพธ์การตรวจสอบได้จากตารางข้อมูลด้านล่าง
+                    </p>
+                </div>
+            </div>
+
+            <!-- Filter Controls and Search Bar -->
+            <div class="glass-panel p-4 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-center border-white/5">
+                <!-- Filtering tabs -->
+                <div class="flex space-x-2 w-full md:w-auto">
+                    <button class="filter-tab px-4 py-2 rounded-xl text-xs font-semibold bg-white/10 hover:bg-white/15 text-white active-tab transition-all" data-filter="all">
+                        ทั้งหมด
+                    </button>
+                    <button class="filter-tab px-4 py-2 rounded-xl text-xs font-semibold bg-transparent hover:bg-white/5 text-slate-400 hover:text-white transition-all" data-filter="contaminated">
+                        🔴 ตรวจพบโลหะหนัก
+                    </button>
+                    <button class="filter-tab px-4 py-2 rounded-xl text-xs font-semibold bg-transparent hover:bg-white/5 text-slate-400 hover:text-white transition-all" data-filter="safe">
+                        🟢 ปลอดภัย
+                    </button>
+                </div>
+
+                <!-- Live Search input -->
+                <div class="relative w-full md:w-80">
+                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </span>
+                    <input type="text" id="search-input" placeholder="ค้นหา ชื่อสถานที่, จังหวัด, อำเภอ..." class="w-full pl-10 pr-4 py-2 rounded-xl glass-input text-xs">
+                </div>
+            </div>
+
+            <!-- Loading Spinner for Feed -->
+            <div id="feed-loader" class="flex flex-col items-center justify-center py-16 space-y-3">
+                <i class="fa-solid fa-circle-notch animate-spin text-4xl text-fluo-cyan"></i>
+                <span class="text-xs text-slate-400">กำลังเชื่อมต่อฐานข้อมูล...</span>
+            </div>
+
+            <!-- Empty State -->
+            <div id="feed-empty" class="hidden glass-panel py-16 text-center rounded-3xl border-white/5 space-y-4">
+                <i class="fa-solid fa-database text-5xl text-slate-600"></i>
+                <div class="text-sm font-semibold text-slate-300">ไม่พบข้อมูลผลตรวจตามเงื่อนไขที่คุณเลือก</div>
+                <p class="text-xs text-slate-500 max-w-sm mx-auto">ช่วยรายงานข้อมูลน้ำพื้นที่ต่าง ๆ ของคุณเพื่อร่วมกันสร้างฐานข้อมูลความปลอดภัยร่วมกัน</p>
+                <a href="#report-form-section" class="inline-flex items-center px-4 py-2 rounded-xl text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors">
+                    คลิกรายงานเครื่องแรก <i class="fa-solid fa-plus ml-1.5"></i>
+                </a>
+            </div>
+
+            <!-- Feed Grid Layout -->
+            <div id="feed-container" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Dynamic loaded water record cards here -->
+            </div>
+        </section>
+
+        <!-- 5. GENERAL FORUM / COMMUNITY DISCUSSION BOARD SECTION -->
+        <section id="discussion-section" class="scroll-mt-24">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Left: Form to submit general comment -->
+                <div class="lg:col-span-5 space-y-6">
+                    <div>
+                        <h2 class="text-2xl sm:text-3xl font-extrabold flex items-center tracking-tight">
+                            <i class="fa-solid fa-comments mr-3 text-fluo-cyan"></i>
+                            กระดานเสวนาเบาะแส
+                        </h2>
+                        <p class="text-slate-400 text-sm mt-1">
+                            ร่วมแจ้งเบาะแส คาดการณ์ต้นเหตุปัญหาน้ำปนเปื้อนโลหะหนัก หรือหารือวิธีหาทางแก้ไขในระยะยาว
+                        </p>
+                    </div>
+
+                    <form id="general-comment-form" class="glass-panel p-6 rounded-3xl border-white/5 shadow-glass space-y-4">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-fluo-cyan mb-2">แสดงความคิดเห็นทั่วไปหรือแจ้งเบาะแส</h4>
+                        
+                        <div>
+                            <label for="comment_author" class="block text-[10px] font-semibold text-slate-300 mb-1">ชื่อผู้เสนอความเห็น</label>
+                            <input type="text" id="comment_author" placeholder="ระบุชื่อ (เช่น ชาวบ้านริมคลอง)" class="w-full px-4 py-2 rounded-xl glass-input text-xs">
+                        </div>
+
+                        <div class="flex items-center py-1">
+                            <label class="relative flex items-center cursor-pointer select-none">
+                                <input type="checkbox" id="comment_anonymous" class="sr-only peer">
+                                <div class="w-8 h-4.5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-fluo-cyan"></div>
+                                <span class="ml-2 text-xs text-slate-400 hover:text-slate-300 transition-colors">โพสต์แบบไม่แสดงตัวตน</span>
+                            </label>
+                        </div>
+
+                        <div>
+                            <label for="comment_text" class="block text-[10px] font-semibold text-slate-300 mb-1">เนื้อหาข้อความ / รายละเอียดปัญหาสิ่งแวดล้อม</label>
+                            <textarea id="comment_text" rows="4" placeholder="พิมพ์ข้อความของคุณที่นี่..." class="w-full px-4 py-2.5 rounded-xl glass-input text-xs" required></textarea>
+                        </div>
+
+                        <button type="submit" id="btn-submit-comment" class="w-full py-2.5 rounded-xl text-xs font-semibold text-dark-950 bg-fluo-cyan hover:bg-fluo-cyan/90 transition-all font-sans flex items-center justify-center">
+                            <i class="fa-solid fa-paper-plane mr-1.5"></i> ส่งโพสต์เสวนา
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Right: Timeline of general comments -->
+                <div class="lg:col-span-7 space-y-4">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center justify-between">
+                        <span>รายการความคิดเห็นทั้งหมด</span>
+                        <span id="general-comments-count" class="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-300 font-mono">0 ข้อความ</span>
+                    </h3>
+
+                    <!-- Loading Spinner for Comments -->
+                    <div id="general-comments-loader" class="flex flex-col items-center justify-center py-10 space-y-2">
+                        <i class="fa-solid fa-spinner animate-spin text-2xl text-slate-500"></i>
+                        <span class="text-[10px] text-slate-500">กำลังเชื่อมต่อฐานข้อมูล...</span>
+                    </div>
+
+                    <!-- General comments list container -->
+                    <div id="general-comments-container" class="space-y-4 max-h-[500px] overflow-y-auto pr-2">
+                        <!-- Dynamic general comments will render here -->
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-32 border-t border-white/5 py-12 relative overflow-hidden bg-dark-950/80">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-6">
+                <div>
+                    <div class="flex items-center justify-center sm:justify-start space-x-2 text-transparent bg-clip-text bg-gradient-to-r from-fluo-cyan to-white font-mono font-bold text-lg">
+                        <i class="fa-solid fa-droplet text-fluo-cyan mr-1.5"></i> METALYZE
+                    </div>
+                    <p class="text-slate-500 text-xs mt-2">
+                        ระบบฐานข้อมูลสาธารณะและการเฝ้าระวังคุณภาพน้ำปนเปื้อนโลหะหนักระดับไมโคร <br class="hidden sm:inline">
+                        รังสรรค์ร่วมกับชุมชนเพื่อสร้างความปลอดภัยสิ่งแวดล้อมรอบตัว
+                    </p>
+                </div>
+                <div class="text-xs text-slate-400 font-mono">
+                    © 2026 Metalyze Project. All rights reserved. <br class="sm:text-right mt-1 text-[10px] text-slate-600">
+                    Developed using Tailwind CSS, SweetAlert2, Supabase
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- CLIENT LOGIC & INTEGRATIONS -->
+    <script>
+        // --- 1. CONFIGURATIONS & SUPABASE INITIALIZATION ---
+        const supabaseUrl = 'https://hhiomwcygqhoxsqcemtk.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhoaW9td2N5Z3Fob3hzcWNlbXRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMjY5NjcsImV4cCI6MjA5NzgwMjk2N30.VB-3GPykOdgBp2HK88SBOcaGUrzBs9h3iGht-9Y3pdY';
+        
+        let supabaseClient;
+        try {
+            const { createClient } = supabase;
+            supabaseClient = createClient(supabaseUrl, supabaseKey);
+        } catch (e) {
+            console.error("Supabase load error:", e);
+        }
+
+        // Address data global variable
+        let thaiAddressData = [];
+        
+        // Leaflet map instances
+        let mainMap;
+        let miniMap;
+        let miniMapMarker;
+        let mapMarkersGroup;
+
+        // Active state lists
+        let allReports = [];
+        let activeFilter = 'all';
+
+        // --- 2. INITIALIZATION ON DOM CONTENT LOADED ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            initSimulator();
+            initMaps();
+            await loadThaiAddressData();
+            await fetchAllData();
+        });
+
+        // --- 3. THE METADOT INSTRUMENT SIMULATOR ---
+        function initSimulator() {
+            const simRange = document.getElementById('sim-range');
+            const simFluidBg = document.getElementById('sim-fluid-bg');
+            const simGlowLayer = document.getElementById('sim-glow-layer');
+            const simStatusLabel = document.getElementById('sim-status-label');
+            const simStatusValue = document.getElementById('sim-status-value');
+            const simPpmText = document.getElementById('sim-ppm-text');
+
+            const stages = [
+                {
+                    bgClass: 'bg-dark-950',
+                    glowClass: 'uv-control',
+                    label: 'น้ำเปล่าปราศจาก Carbon dots (หลอดใสสำหรับเปรียบเทียบ)',
+                    val: '⚪ น้ำเปล่า (Control - ไม่เรืองแสง)',
+                    ppm: 'น้ำเปล่า (Control)',
+                    color: '#94a3b8'
+                },
+                {
+                    bgClass: 'bg-cyan-950/45',
+                    glowClass: 'uv-glowing-cds',
+                    label: 'Carbon dots (CDs) จากกากกาแฟเรืองแสงสีเขียว/ฟ้าเข้มข้นสูงสุด',
+                    val: '🟢 ปลอดภัย (0.0 ppm - ไม่พบโลหะหนัก)',
+                    ppm: '0 ppm',
+                    color: '#06d6a0'
+                },
+                {
+                    bgClass: 'bg-cyan-950/30',
+                    glowClass: 'uv-glowing-25',
+                    label: 'การเรืองแสงเริ่มลดลงเล็กน้อยที่โลหะปนเปื้อน 25 ppm',
+                    val: '🟡 พบปนเปื้อนระดับต่ำ (25 ppm)',
+                    ppm: '25 ppm',
+                    color: '#84cc16'
+                },
+                {
+                    bgClass: 'bg-slate-900/40',
+                    glowClass: 'uv-glowing-50',
+                    label: 'การเรืองแสงลดลงปานกลางที่โลหะปนเปื้อน 50 ppm',
+                    val: '🟡 พบปนเปื้อนระดับต่ำ (50 ppm)',
+                    ppm: '50 ppm',
+                    color: '#f59e0b'
+                },
+                {
+                    bgClass: 'bg-slate-900/60',
+                    glowClass: 'uv-glowing-100',
+                    label: 'การเรืองแสงลดลงครึ่งหนึ่งอย่างเห็นได้ชัดที่โลหะปนเปื้อน 100 ppm',
+                    val: '🟠 พบปนเปื้อนระดับปานกลาง (100 ppm)',
+                    ppm: '100 ppm',
+                    color: '#ea580c'
+                },
+                {
+                    bgClass: 'bg-slate-950/70',
+                    glowClass: 'uv-glowing-200',
+                    label: 'การเรืองแสงค่อนข้างหรี่แสงมากที่โลหะปนเปื้อน 200 ppm',
+                    val: '🔴 พบปนเปื้อนระดับสูง (200 ppm - อันตราย!)',
+                    ppm: '200 ppm',
+                    color: '#ef4444'
+                },
+                {
+                    bgClass: 'bg-slate-950/90',
+                    glowClass: 'uv-glowing-300',
+                    label: 'การเรืองแสงมืดสนิทเกือบทั้งหมดที่โลหะปนเปื้อน 300 ppm',
+                    val: '🔴 พบปนเปื้อนระดับสูง (300 ppm - อันตราย!)',
+                    ppm: '300 ppm',
+                    color: '#dc2626'
+                },
+                {
+                    bgClass: 'bg-dark-950',
+                    glowClass: 'uv-glowing-400',
+                    label: 'การเรืองแสงดับสนิทอย่างสมบูรณ์เนื่องจากโลหะปนเปื้อน 400 ppm (Quenched)',
+                    val: '🔴 พบปนเปื้อนระดับสูงสุด (400 ppm - อันตรายสูงสุด!)',
+                    ppm: '400 ppm',
+                    color: '#b91c1c'
+                }
+            ];
+
+            function updateSimulator(index) {
+                const stage = stages[index];
+                
+                // Clear old classes
+                simFluidBg.className = 'relative h-28 rounded-xl flex items-center justify-center transition-all duration-500 overflow-hidden border border-white/10 ' + stage.bgClass;
+                simGlowLayer.className = 'absolute inset-0 transition-opacity duration-700 opacity-100 ' + stage.glowClass;
+                
+                simStatusLabel.textContent = stage.label;
+                simStatusValue.textContent = stage.val;
+                simStatusValue.style.color = stage.color;
+                simPpmText.textContent = stage.ppm;
+                simPpmText.style.color = stage.color;
+            }
+
+            simRange.addEventListener('input', (e) => {
+                updateSimulator(parseInt(e.target.value));
+            });
+
+            // Init default state to CDs 0.0 ppm (index 1)
+            updateSimulator(1);
+        }
+
+        // --- 4. MAPS INITIALIZATION (MAIN & MINI FORM MAP) ---
+        function initMaps() {
+            // Default center point: Bangkok
+            const defaultLoc = [13.736717, 100.523186];
+            
+            // Map dark mode theme attribution and template URL
+            const mapTilesUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+            const attribution = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+
+            // Initializing Main Map
+            try {
+                mainMap = L.map('map', {
+                    scrollWheelZoom: false
+                }).setView(defaultLoc, 6);
+                
+                L.tileLayer(mapTilesUrl, {
+                    attribution: attribution,
+                    maxZoom: 20
+                }).addTo(mainMap);
+
+                // Cluster or group markers
+                mapMarkersGroup = L.layerGroup().addTo(mainMap);
+            } catch (e) {
+                console.error("Main map load failure:", e);
+                document.getElementById('map').innerHTML = `<div class="p-6 text-center text-rose-400"><i class="fa-solid fa-triangle-exclamation mr-2"></i>ไม่สามารถโหลดแผนที่ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต</div>`;
+            }
+
+            // Initializing Mini Map in Form
+            try {
+                miniMap = L.map('mini-map', {
+                    scrollWheelZoom: true
+                }).setView(defaultLoc, 6);
+
+                L.tileLayer(mapTilesUrl, {
+                    attribution: attribution,
+                    maxZoom: 20
+                }).addTo(miniMap);
+
+                // Adding a draggable marker for latitude longitude picking
+                miniMapMarker = L.marker(defaultLoc, {
+                    draggable: true
+                }).addTo(miniMap);
+
+                // Update input coordinates when marker is dragged
+                miniMapMarker.on('dragend', function (event) {
+                    const marker = event.target;
+                    const position = marker.getLatLng();
+                    document.getElementById('latitude').value = position.lat.toFixed(6);
+                    document.getElementById('longitude').value = position.lng.toFixed(6);
+                });
+
+                // Update marker when mini-map is clicked
+                miniMap.on('click', function (e) {
+                    const coord = e.latlng;
+                    miniMapMarker.setLatLng(coord);
+                    document.getElementById('latitude').value = coord.lat.toFixed(6);
+                    document.getElementById('longitude').value = coord.lng.toFixed(6);
+                });
+            } catch (e) {
+                console.error("Mini map load failure:", e);
+                document.getElementById('mini-map').innerHTML = `<div class="p-4 text-center text-rose-400 text-xs"><i class="fa-solid fa-triangle-exclamation"></i> ไม่สามารถโหลดแผนที่เลือกพิกัดได้</div>`;
+            }
+        }
+
+        // Get Current Geolocation API
+        document.getElementById('btn-get-gps').addEventListener('click', () => {
+            if (navigator.geolocation) {
+                Swal.fire({
+                    title: 'กำลังดึงพิกัด GPS...',
+                    text: 'กรุณาอนุญาตสิทธิ์เข้าถึงพิกัดบนบราวเซอร์ของคุณ',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+                        
+                        document.getElementById('latitude').value = lat.toFixed(6);
+                        document.getElementById('longitude').value = lng.toFixed(6);
+                        
+                        if (miniMap && miniMapMarker) {
+                            const newLatLng = new L.LatLng(lat, lng);
+                            miniMapMarker.setLatLng(newLatLng);
+                            miniMap.setView(newLatLng, 14);
+                        }
+                        
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'ดึงพิกัดสำเร็จ!',
+                            text: `ละติจูด: ${lat.toFixed(6)}, ลองจิจูด: ${lng.toFixed(6)}`,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+                    },
+                    (error) => {
+                        console.error("GPS fetching error:", error);
+                        let errMsg = "ไม่สามารถดึงพิกัดได้ กรุณากรอกพิกัดด้วยตัวเอง";
+                        if (error.code === error.PERMISSION_DENIED) {
+                            errMsg = "การดึงพิกัดถูกปฏิเสธสิทธิ์ กรุณาเปิดแชร์ตำแหน่งของคุณและลองใหม่อีกครั้ง";
+                        }
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'ล้มเหลว',
+                            text: errMsg,
+                        });
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ไม่รองรับ',
+                    text: 'บราวเซอร์นี้ไม่รองรับระบบ Geolocation',
+                });
+            }
+        });
+
+        // --- 5. THAILAND ADDRESS AUTO-COMPLETE DROPDOWNS ---
+        async function loadThaiAddressData() {
+            const provinceSelect = document.getElementById('province');
+            try {
+                // Fetch the consolidated nested Thai administrative boundaries data
+                const response = await fetch('https://raw.githubusercontent.com/kongvut/thai-province-data/master/api/v1/province_with_amphure_tambon.json');
+                if (!response.ok) throw new Error("Network address data fetch error");
+                
+                thaiAddressData = await response.json();
+                
+                // Sort provinces by name in Thai
+                thaiAddressData.sort((a, b) => a.name_th.localeCompare(b.name_th, 'th'));
+
+                // Populate Province select
+                provinceSelect.innerHTML = '<option value="" disabled selected>-- เลือกจังหวัด --</option>';
+                thaiAddressData.forEach(prov => {
+                    const opt = document.createElement('option');
+                    opt.value = prov.name_th;
+                    opt.textContent = prov.name_th;
+                    opt.className = 'bg-dark-900';
+                    provinceSelect.appendChild(opt);
+                });
+                provinceSelect.removeAttribute('disabled');
+
+                // Bind cascade events
+                provinceSelect.addEventListener('change', handleProvinceChange);
+                document.getElementById('district').addEventListener('change', handleDistrictChange);
+
+            } catch (err) {
+                console.error("Failed to load address data:", err);
+                provinceSelect.innerHTML = '<option value="">โหลดข้อมูลล้มเหลว</option>';
+                
+                // Keep selects enabled for manual typing in case of raw file fetch issues
+                enableFallbackManualLocationInputs();
+            }
+        }
+
+        function enableFallbackManualLocationInputs() {
+            // Replace dropdown selects with text inputs in case of address database error
+            const provinceDiv = document.getElementById('province').parentElement;
+            const districtDiv = document.getElementById('district').parentElement;
+            const subdistrictDiv = document.getElementById('subdistrict').parentElement;
+
+            provinceDiv.innerHTML = `
+                <label for="province" class="block text-xs font-semibold text-slate-300 mb-1.5">จังหวัด (พิมพ์ระบุ)</label>
+                <input type="text" id="province" placeholder="เช่น นนทบุรี" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+            `;
+            districtDiv.innerHTML = `
+                <label for="district" class="block text-xs font-semibold text-slate-300 mb-1.5">อำเภอ / เขต (พิมพ์ระบุ)</label>
+                <input type="text" id="district" placeholder="เช่น เมืองนนทบุรี" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+            `;
+            subdistrictDiv.innerHTML = `
+                <label for="subdistrict" class="block text-xs font-semibold text-slate-300 mb-1.5">ตำบล / แขวง (พิมพ์ระบุ)</label>
+                <input type="text" id="subdistrict" placeholder="เช่น ท่าทราย" class="w-full px-4 py-2.5 rounded-xl glass-input text-sm" required>
+            `;
+        }
+
+        function handleProvinceChange() {
+            const selectedProvince = document.getElementById('province').value;
+            const districtSelect = document.getElementById('district');
+            const subdistrictSelect = document.getElementById('subdistrict');
+
+            // Reset Subdistricts
+            subdistrictSelect.innerHTML = '<option value="">เลือกอำเภอก่อน...</option>';
+            subdistrictSelect.setAttribute('disabled', 'true');
+
+            // Find matching province data
+            const provinceMatch = thaiAddressData.find(p => p.name_th === selectedProvince);
+            
+            if (provinceMatch && provinceMatch.amphure) {
+                // Sort Districts
+                const districts = [...provinceMatch.amphure].sort((a, b) => a.name_th.localeCompare(b.name_th, 'th'));
+                
+                districtSelect.innerHTML = '<option value="" disabled selected>-- เลือกอำเภอ/เขต --</option>';
+                districts.forEach(dist => {
+                    const opt = document.createElement('option');
+                    opt.value = dist.name_th;
+                    opt.textContent = dist.name_th;
+                    opt.className = 'bg-dark-900';
+                    districtSelect.appendChild(opt);
+                });
+                districtSelect.removeAttribute('disabled');
+            } else {
+                districtSelect.innerHTML = '<option value="">ไม่พบข้อมูลอำเภอ</option>';
+                districtSelect.setAttribute('disabled', 'true');
+            }
+        }
+
+        function handleDistrictChange() {
+            const selectedProvince = document.getElementById('province').value;
+            const selectedDistrict = document.getElementById('district').value;
+            const subdistrictSelect = document.getElementById('subdistrict');
+
+            const provinceMatch = thaiAddressData.find(p => p.name_th === selectedProvince);
+            if (provinceMatch && provinceMatch.amphure) {
+                const districtMatch = provinceMatch.amphure.find(d => d.name_th === selectedDistrict);
+                
+                if (districtMatch && districtMatch.tambon) {
+                    // Sort Subdistricts
+                    const subdistricts = [...districtMatch.tambon].sort((a, b) => a.name_th.localeCompare(b.name_th, 'th'));
+                    
+                    subdistrictSelect.innerHTML = '<option value="" disabled selected>-- เลือกตำบล/แขวง --</option>';
+                    subdistricts.forEach(sub => {
+                        const opt = document.createElement('option');
+                        opt.value = sub.name_th;
+                        opt.textContent = sub.name_th;
+                        opt.className = 'bg-dark-900';
+                        subdistrictSelect.appendChild(opt);
+                    });
+                    subdistrictSelect.removeAttribute('disabled');
+                } else {
+                    subdistrictSelect.innerHTML = '<option value="">ไม่พบข้อมูลตำบล</option>';
+                    subdistrictSelect.setAttribute('disabled', 'true');
+                }
+            }
+        }
+
+        // Automatic logic linking: CDs Fluorescence level select directly updates Contamination select
+        document.getElementById('fluorescence_level').addEventListener('change', (e) => {
+            const value = e.target.value;
+            const contaminationSelect = document.getElementById('contamination_status');
+            const ppmSelect = document.getElementById('ppm_estimate');
+            
+            if (value === 'normal') {
+                contaminationSelect.value = 'safe';
+                ppmSelect.value = '0';
+            } else if (value === 'decreased') {
+                contaminationSelect.value = 'contaminated';
+                // If set to contaminated, default to first detection level 25 ppm
+                if (ppmSelect.value === '0' || !ppmSelect.value) {
+                    ppmSelect.value = '25';
+                }
+            }
+        });
+
+        document.getElementById('contamination_status').addEventListener('change', (e) => {
+            const value = e.target.value;
+            const fluoSelect = document.getElementById('fluorescence_level');
+            const ppmSelect = document.getElementById('ppm_estimate');
+            
+            if (value === 'safe') {
+                fluoSelect.value = 'normal';
+                ppmSelect.value = '0';
+            } else if (value === 'contaminated') {
+                fluoSelect.value = 'decreased';
+                if (ppmSelect.value === '0' || !ppmSelect.value) {
+                    ppmSelect.value = '25';
+                }
+            }
+        });
+
+
+        // --- 6. IMAGE PREVIEW AND STORAGE UTILS ---
+        const photoFileInput = document.getElementById('photo_file');
+        const uploadPlaceholder = document.getElementById('upload-placeholder');
+        const uploadPreviewContainer = document.getElementById('upload-preview-container');
+        const uploadPreviewImg = document.getElementById('upload-preview');
+        const photoFilenameSpan = document.getElementById('photo-filename');
+        const btnRemovePhoto = document.getElementById('btn-remove-photo');
+        
+        let selectedFileObject = null;
+
+        photoFileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                if (file.size > 5 * 1024 * 1024) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'ไฟล์ใหญ่เกินไป',
+                        text: 'กรุณาอัปโหลดรูปภาพที่มีขนาดไม่เกิน 5MB',
+                    });
+                    photoFileInput.value = '';
+                    return;
+                }
+                
+                selectedFileObject = file;
+                photoFilenameSpan.textContent = file.name;
+                
+                // Show Image Preview
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    uploadPreviewImg.src = event.target.result;
+                    uploadPlaceholder.classList.add('hidden');
+                    uploadPreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Clear uploaded photo
+        btnRemovePhoto.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            clearPhotoSelection();
+        });
+
+        function clearPhotoSelection() {
+            photoFileInput.value = '';
+            selectedFileObject = null;
+            uploadPreviewImg.src = '#';
+            uploadPreviewContainer.classList.add('hidden');
+            uploadPlaceholder.classList.remove('hidden');
+        }
+
+
+        // --- 7. DATABASE INTEGRATION WITH SUPABASE ---
+        
+        // Fetch all reports and comments
+        async function fetchAllData() {
+            if (!supabaseClient) {
+                showDbConnectionError();
+                return;
+            }
+
+            try {
+                // Fetch reports sorted by newest first
+                const { data: reports, error } = await supabaseClient
+                    .from('water_reports')
+                    .select('*')
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+                
+                allReports = reports || [];
+                
+                // Render feed & populate maps
+                renderStats();
+                renderFeed();
+                populateMapMarkers();
+                
+                // Fetch general comments
+                await fetchGeneralComments();
+
+            } catch (err) {
+                console.error("Database connection/query error:", err);
+                document.getElementById('feed-loader').innerHTML = `
+                    <div class="text-rose-400 text-sm text-center">
+                        <i class="fa-solid fa-triangle-exclamation text-2xl block mb-2"></i>
+                        เกิดข้อผิดพลาดในการโหลดข้อมูลสิ่งแวดล้อม <br>
+                        <span class="text-xs text-slate-500 font-mono mt-1 block">รายละเอียด: ${err.message}</span>
+                    </div>
+                `;
+            }
+        }
+
+        function showDbConnectionError() {
+            const errorHtml = `
+                <div class="text-amber-500 text-sm text-center">
+                    <i class="fa-solid fa-circle-exclamation text-2xl block mb-2"></i>
+                    ตรวจไม่พบไคลเอนต์ Supabase <br>
+                    <span class="text-xs text-slate-500 mt-1 block">กรุณาตรวจสอบคีย์เชื่อมต่อฐานข้อมูลในส่วนหัวไฟล์ HTML</span>
+                </div>
+            `;
+            document.getElementById('feed-loader').innerHTML = errorHtml;
+            document.getElementById('general-comments-loader').innerHTML = errorHtml;
+        }
+
+        // Render dashboard overview counter stats
+        function renderStats() {
+            const total = allReports.length;
+            const safe = allReports.filter(r => r.contamination_status === 'safe').length;
+            const danger = allReports.filter(r => r.contamination_status === 'contaminated').length;
+
+            document.getElementById('stat-total').textContent = total;
+            document.getElementById('stat-safe').textContent = safe;
+            document.getElementById('stat-danger').textContent = danger;
+        }
+
+        // Populating Leaflet Main Map with Markers
+        function populateMapMarkers() {
+            if (!mainMap || !mapMarkersGroup) return;
+
+            // Clear old pins
+            mapMarkersGroup.clearLayers();
+
+            const reportsWithGps = allReports.filter(r => r.latitude && r.longitude);
+
+            reportsWithGps.forEach(rep => {
+                const isContam = rep.contamination_status === 'contaminated';
+                
+                // Define circular icon design depending on metal status
+                const iconClass = isContam ? 'glow-marker-danger' : 'glow-marker-safe';
+                
+                const customIcon = L.divIcon({
+                    className: iconClass,
+                    iconSize: [16, 16],
+                    iconAnchor: [8, 8]
+                });
+
+                const formattedDate = new Date(rep.created_at).toLocaleDateString('th-TH', {
+                    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                const photoHtml = rep.photo_url 
+                    ? `<div class="mt-2"><img src="${rep.photo_url}" class="w-full h-24 object-cover rounded-lg border border-white/10" alt="Water Location"></div>` 
+                    : '';
+
+                const badgeHtml = isContam 
+                    ? `<span class="inline-block px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold">🔴 ตรวจพบโลหะหนัก (~${rep.ppm_estimate} ppm)</span>`
+                    : `<span class="inline-block px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold">🟢 ปลอดภัย</span>`;
+
+                const reporterName = rep.is_anonymous ? 'ผู้ใช้นิรนาม' : (rep.reporter_name || 'ผู้ใช้นิรนาม');
+
+                // Construct popup text
+                const popupContent = `
+                    <div class="p-2 space-y-2 text-xs w-56 font-sans">
+                        <div class="flex justify-between items-start">
+                            <h4 class="font-bold text-sm text-slate-100">${rep.location_name}</h4>
+                        </div>
+                        <div>
+                            <span class="text-[10px] text-slate-400 block">${rep.subdistrict} > ${rep.district} > ${rep.province}</span>
+                        </div>
+                        <div class="pt-1">
+                            ${badgeHtml}
+                        </div>
+                        ${photoHtml}
+                        <div class="text-[10px] text-slate-400 leading-relaxed max-h-16 overflow-y-auto">
+                            <strong>หมายเหตุ:</strong> ${rep.notes || '-'}
+                        </div>
+                        <div class="border-t border-white/10 pt-2 flex justify-between items-center text-[10px] text-slate-500">
+                            <span>โดย: ${reporterName}</span>
+                            <span>${formattedDate}</span>
+                        </div>
+                        <div class="pt-1.5">
+                            <a href="#card-${rep.id}" class="block text-center py-1 bg-white/5 hover:bg-white/10 border border-white/10 text-[10px] font-semibold text-fluo-cyan rounded-md transition-all">
+                                <i class="fa-solid fa-comments mr-1"></i> ดูคอมเมนต์ / โพสต์คุย
+                            </a>
+                        </div>
+                    </div>
+                `;
+
+                // Add marker to map
+                L.marker([rep.latitude, rep.longitude], { icon: customIcon })
+                    .bindPopup(popupContent)
+                    .addTo(mapMarkersGroup);
+            });
+
+            // Keep map overview centered on Thailand at zoom level 6
+            mainMap.setView([13.736717, 100.523186], 6);
+        }
+
+        // Render water records to Timeline Feed grid list
+        function renderFeed() {
+            const feedContainer = document.getElementById('feed-container');
+            const feedLoader = document.getElementById('feed-loader');
+            const feedEmpty = document.getElementById('feed-empty');
+            const searchInput = document.getElementById('search-input').value.toLowerCase();
+
+            feedLoader.classList.add('hidden');
+            feedContainer.innerHTML = '';
+
+            // Apply search term filters and category tabs
+            const filteredReports = allReports.filter(rep => {
+                // Category tabs matching
+                if (activeFilter === 'safe' && rep.contamination_status !== 'safe') return false;
+                if (activeFilter === 'contaminated' && rep.contamination_status !== 'contaminated') return false;
+
+                // Query search matching
+                if (searchInput) {
+                    const searchLoc = `${rep.location_name} ${rep.province} ${rep.district} ${rep.subdistrict}`.toLowerCase();
+                    const searchReporter = (rep.is_anonymous ? 'ผู้ใช้นิรนาม' : (rep.reporter_name || '')).toLowerCase();
+                    return searchLoc.includes(searchInput) || searchReporter.includes(searchInput);
+                }
+
+                return true;
+            });
+
+            if (filteredReports.length === 0) {
+                feedEmpty.classList.remove('hidden');
+                return;
+            }
+
+            feedEmpty.classList.add('hidden');
+
+            // Map and build report items
+            filteredReports.forEach(rep => {
+                const card = document.createElement('div');
+                card.id = `card-${rep.id}`;
+                card.className = 'glass-panel rounded-3xl overflow-hidden border-white/5 shadow-glass flex flex-col justify-between transform hover:scale-[1.005] hover:border-white/10 transition-all duration-300 scroll-mt-20';
+
+                const isContam = rep.contamination_status === 'contaminated';
+                const formattedDate = new Date(rep.created_at).toLocaleDateString('th-TH', {
+                    year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                });
+
+                const badgeClass = isContam 
+                    ? 'bg-fluo-rose/10 text-fluo-rose border-fluo-rose/20 shadow-glow-rose' 
+                    : 'bg-fluo-emerald/10 text-fluo-emerald border-fluo-emerald/20 shadow-glow-emerald';
+                const badgeLabel = isContam ? `🔴 พบโลหะหนัก (${rep.ppm_estimate} ppm)` : '🟢 ปกติ (ปลอดภัย)';
+
+                const reporterName = rep.is_anonymous ? 'ผู้ใช้นิรนาม' : (rep.reporter_name || 'ผู้ใช้นิรนาม');
+                const photoUrl = rep.photo_url || 'https://images.unsplash.com/photo-1548880878-d6af8b77a06f?auto=format&fit=crop&w=600&q=80'; // fallback placeholder image
+
+                card.innerHTML = `
+                    <div>
+                        <!-- Header with photo background representation -->
+                        <div class="relative h-44 w-full bg-slate-900 overflow-hidden">
+                            <img src="${photoUrl}" class="w-full h-full object-cover" alt="Water environment photo">
+                            <div class="absolute inset-0 bg-gradient-to-t from-dark-900 via-dark-900/30 to-transparent"></div>
+                            
+                            <!-- Status Floating Badge -->
+                            <div class="absolute top-4 right-4">
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border ${badgeClass}">
+                                    ${badgeLabel}
+                                </span>
+                            </div>
+                        </div>
+
+                        <!-- Info Content Body -->
+                        <div class="p-6 space-y-4">
+                            <div class="space-y-1">
+                                <span class="text-[10px] text-fluo-cyan uppercase font-bold tracking-wider font-mono">
+                                    <i class="fa-solid fa-map-location mr-1"></i> ${rep.subdistrict} › ${rep.district} › ${rep.province}
+                                </span>
+                                <h3 class="text-lg font-bold text-slate-100">${rep.location_name}</h3>
+                                ${rep.latitude && rep.longitude ? `
+                                    <span class="text-[10px] text-slate-500 font-mono block">
+                                        <i class="fa-solid fa-location-dot text-slate-600"></i> พิกัด: ${rep.latitude.toFixed(5)}, ${rep.longitude.toFixed(5)}
+                                    </span>
+                                ` : ''}
+                            </div>
+
+                            <p class="text-xs text-slate-400 leading-relaxed bg-white/5 p-3 rounded-xl min-h-[50px] border border-white/5">
+                                <strong class="text-slate-300 text-[10px] block mb-1">ข้อมูลเพิ่มเติม/ข้อสังเกต:</strong>
+                                ${rep.notes || 'ไม่มีข้อมูลรายละเอียดเพิ่มเติมบันทึกไว้'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Actions & Interactive Comments Footer -->
+                    <div class="border-t border-white/5 bg-slate-900/40 p-4">
+                        <div class="flex justify-between items-center text-xs text-slate-400">
+                            <div class="flex items-center">
+                                <div class="w-7 h-7 rounded-full bg-white/5 flex items-center justify-center text-slate-500 mr-2 text-[10px]">
+                                    <i class="fa-solid ${rep.is_anonymous ? 'fa-user-secret' : 'fa-user'}"></i>
+                                </div>
+                                <span>โดย: ${reporterName}</span>
+                            </div>
+                            <span class="text-[10px] font-mono text-slate-500">${formattedDate}</span>
+                        </div>
+
+                        <!-- Card Comments drawer collapse -->
+                        <div class="mt-4 pt-3 border-t border-white/5 space-y-3">
+                            <button onclick="toggleCardComments('${rep.id}')" class="w-full flex items-center justify-between py-1.5 px-3 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-semibold text-slate-300 transition-all">
+                                <span><i class="fa-solid fa-comments text-fluo-cyan mr-1.5"></i> ร่วมวิเคราะห์ / คอมเมนต์</span>
+                                <span id="comment-btn-count-${rep.id}" class="bg-slate-800 text-[10px] px-2 py-0.5 rounded-full text-slate-400 font-mono">0</span>
+                            </button>
+
+                            <!-- Collapsible Drawer area -->
+                            <div id="comments-drawer-${rep.id}" class="hidden space-y-3 pt-2">
+                                <div id="comments-list-${rep.id}" class="space-y-2 max-h-40 overflow-y-auto text-[11px] pr-1">
+                                    <!-- Dynamic report specific comments -->
+                                </div>
+
+                                <!-- Inline Add comment form -->
+                                <div class="flex gap-2">
+                                    <input type="text" id="input-comment-author-${rep.id}" placeholder="ระบุชื่อ..." class="w-20 px-2 py-1.5 rounded-lg glass-input text-[10px] flex-shrink-0">
+                                    <input type="text" id="input-comment-text-${rep.id}" placeholder="เขียนแสดงความเห็น/เบาะแส..." class="flex-grow px-3 py-1.5 rounded-lg glass-input text-[10px]" required>
+                                    <button onclick="submitReportComment('${rep.id}')" class="px-3 bg-fluo-cyan hover:bg-fluo-cyan/90 text-dark-950 font-bold text-[10px] rounded-lg transition-colors">
+                                        ส่ง
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                feedContainer.appendChild(card);
+                
+                // Fetch and render counts dynamically for this report card
+                fetchAndCountComments(rep.id);
+            });
+        }
+
+        // Live Search Input typing listener (debounced-like)
+        document.getElementById('search-input').addEventListener('input', () => {
+            renderFeed();
+        });
+
+        // Category Filter Switch Tabs
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                // Clear active
+                document.querySelectorAll('.filter-tab').forEach(t => {
+                    t.classList.remove('bg-white/10', 'text-white', 'active-tab');
+                    t.classList.add('bg-transparent', 'text-slate-400');
+                });
+                
+                // Set active
+                e.target.classList.add('bg-white/10', 'text-white', 'active-tab');
+                e.target.classList.remove('bg-transparent', 'text-slate-400');
+                
+                activeFilter = e.target.getAttribute('data-filter');
+                renderFeed();
+            });
+        });
+
+
+        // --- 8. CARD COMMENTS DRAWERS LOGIC ---
+        function toggleCardComments(reportId) {
+            const drawer = document.getElementById(`comments-drawer-${reportId}`);
+            const isHidden = drawer.classList.contains('hidden');
+            
+            if (isHidden) {
+                drawer.classList.remove('hidden');
+                loadReportComments(reportId);
+            } else {
+                drawer.classList.add('hidden');
+            }
+        }
+
+        // Fetch comments specifically for a single report card
+        async function loadReportComments(reportId) {
+            const listContainer = document.getElementById(`comments-list-${reportId}`);
+            if (!supabaseClient) return;
+
+            try {
+                listContainer.innerHTML = '<div class="text-slate-500 text-center py-2 text-[9px]"><i class="fa-solid fa-spinner animate-spin"></i> กำลังโหลดความเห็น...</div>';
+
+                const { data: comments, error } = await supabaseClient
+                    .from('comments')
+                    .select('*')
+                    .eq('report_id', reportId)
+                    .order('created_at', { ascending: true });
+
+                if (error) throw error;
+
+                listContainer.innerHTML = '';
+                if (!comments || comments.length === 0) {
+                    listContainer.innerHTML = '<div class="text-slate-500 text-center py-2 text-[10px]">ยังไม่มีความเห็น พูดคุยแนะนำประเด็นที่นี่ได้เลย</div>';
+                    return;
+                }
+
+                comments.forEach(com => {
+                    const comDiv = document.createElement('div');
+                    comDiv.className = 'bg-white/5 p-2 rounded-lg border border-white/5 relative';
+                    
+                    const name = com.is_anonymous ? 'ผู้ใช้นิรนาม' : (com.commenter_name || 'ผู้ใช้นิรนาม');
+                    const comDate = new Date(com.created_at).toLocaleDateString('th-TH', {
+                        month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+
+                    comDiv.innerHTML = `
+                        <div class="flex justify-between font-semibold text-[9px] text-slate-300 mb-1">
+                            <span class="text-fluo-cyan"><i class="fa-solid ${com.is_anonymous ? 'fa-user-secret' : 'fa-user'} mr-1"></i> ${name}</span>
+                            <span class="text-[8px] text-slate-500 font-mono">${comDate}</span>
+                        </div>
+                        <p class="text-slate-200 text-[10px] leading-relaxed">${com.comment_text}</p>
+                    `;
+                    listContainer.appendChild(comDiv);
+                });
+                
+                // Auto scroll to bottom of comments list
+                listContainer.scrollTop = listContainer.scrollHeight;
+
+            } catch (err) {
+                console.error("Report comments error:", err);
+                listContainer.innerHTML = '<div class="text-rose-400 text-center py-2 text-[10px]">ล้มเหลวในการเชื่อมต่อความเห็น</div>';
+            }
+        }
+
+        // Quickly fetch count of comments for the expanding button
+        async function fetchAndCountComments(reportId) {
+            if (!supabaseClient) return;
+            try {
+                const { count, error } = await supabaseClient
+                    .from('comments')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('report_id', reportId);
+
+                if (error) throw error;
+                
+                document.getElementById(`comment-btn-count-${reportId}`).textContent = count || 0;
+            } catch (e) {
+                console.error("Comments counting error:", e);
+            }
+        }
+
+        // Inline submit comment inside card
+        async function submitReportComment(reportId) {
+            const authorInput = document.getElementById(`input-comment-author-${reportId}`);
+            const textInput = document.getElementById(`input-comment-text-${reportId}`);
+            
+            const commentText = textInput.value.trim();
+            let commenterName = authorInput.value.trim();
+            const isAnon = commenterName === ''; // if left empty, default anonymously
+
+            if (!commentText) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'คำแจ้งเตือน',
+                    text: 'กรุณากรอกข้อความแสดงความคิดเห็นก่อนส่ง',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                return;
+            }
+
+            if (!supabaseClient) {
+                Swal.fire({ icon: 'error', title: 'ข้อผิดพลาด', text: 'ไม่ได้เชื่อมต่อดาต้าเบส' });
+                return;
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('comments')
+                    .insert([{
+                        report_id: reportId,
+                        commenter_name: isAnon ? 'ผู้ใช้นิรนาม' : commenterName,
+                        is_anonymous: isAnon,
+                        comment_text: commentText
+                    }]);
+
+                if (error) throw error;
+
+                // Clear input
+                textInput.value = '';
+                
+                // Refresh list and counter badge
+                await loadReportComments(reportId);
+                await fetchAndCountComments(reportId);
+
+            } catch (err) {
+                console.error("Submit comment error:", err);
+                Swal.fire({ icon: 'error', title: 'ล้มเหลว', text: 'ไม่สามารถโพสต์ความคิดเห็นได้: ' + err.message });
+            }
+        }
+
+
+        // --- 9. SUBMITTING REPORT WITH UPLOAD LOGIC ---
+        const reportForm = document.getElementById('report-form');
+        
+        reportForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!supabaseClient) {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ฐานข้อมูลขัดข้อง',
+                    text: 'ไม่พบการเชื่อมต่อกับ Supabase กรุณาเช็กตัวแปรเชื่อมต่อในโค้ด'
+                });
+                return;
+            }
+
+            // Read variables
+            const reporterName = document.getElementById('reporter_name').value.trim();
+            const isAnonymous = document.getElementById('is_anonymous').checked;
+            const locationName = document.getElementById('location_name').value.trim();
+            const province = document.getElementById('province').value;
+            const district = document.getElementById('district').value;
+            const subdistrict = document.getElementById('subdistrict').value;
+            
+            const fluorescenceLevel = document.getElementById('fluorescence_level').value;
+            const contaminationStatus = document.getElementById('contamination_status').value;
+            const ppmEstimate = document.getElementById('ppm_estimate').value;
+            
+            const latVal = document.getElementById('latitude').value;
+            const lngVal = document.getElementById('longitude').value;
+            const notes = document.getElementById('notes').value.trim();
+
+            const latitude = latVal ? parseFloat(latVal) : null;
+            const longitude = lngVal ? parseFloat(lngVal) : null;
+
+            if (!province || !district || !subdistrict) {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'ที่อยู่อาศัยไม่สมบูรณ์',
+                    text: 'กรุณาเลือก จังหวัด, อำเภอ, และตำบล ให้ครบถ้วนเพื่อระบุพื้นที่วิเคราะห์'
+                });
+                return;
+            }
+
+            Swal.fire({
+                title: 'กำลังส่งข้อมูล...',
+                text: 'ระบบกำลังประมวลผลข้อมูลและไฟล์รูปภาพของคุณ',
+                allowOutsideClick: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+
+            let finalPhotoUrl = null;
+
+            // 1. Handle File Upload if selected
+            if (selectedFileObject) {
+                try {
+                    const fileExt = selectedFileObject.name.split('.').pop();
+                    const randomName = Math.random().toString(36).substring(2, 12);
+                    const fileName = `${randomName}_${Date.now()}.${fileExt}`;
+
+                    const { data, error: uploadError } = await supabaseClient.storage
+                        .from('water-photos')
+                        .upload(fileName, selectedFileObject);
+
+                    if (uploadError) {
+                        console.warn("Storage upload error:", uploadError);
+                        // Open dialog ask if they want to proceed without photo
+                        const confirmNoPhoto = await Swal.fire({
+                            title: 'อัปโหลดรูปภาพล้มเหลว',
+                            html: `พบปัญหาในการอัปโหลดภาพไปที่ Supabase Storage bucket <code>water-photos</code><br><br><small class="text-slate-400">กรุณาตรวจสอบว่าคุณได้สร้าง Storage Bucket และตั้งค่า RLS Insert Policy แล้วในแผงจัดการ Supabase</small>`,
+                            icon: 'warning',
+                            showCancelButton: true,
+                            confirmButtonColor: '#06b6d4',
+                            cancelButtonColor: '#f43f5e',
+                            confirmButtonText: 'บันทึกต่อไป (ไม่ใส่ภาพ)',
+                            cancelButtonText: 'ยกเลิกการส่ง'
+                        });
+
+                        if (!confirmNoPhoto.isConfirmed) {
+                            Swal.close();
+                            return; // stop submission
+                        }
+                    } else {
+                        // Success upload
+                        finalPhotoUrl = `${supabaseUrl}/storage/v1/object/public/water-photos/${fileName}`;
+                    }
+                } catch (e) {
+                    console.error("Storage upload catch block:", e);
+                }
+            }
+
+            // 2. Insert record in table
+            try {
+                const { error: insertError } = await supabaseClient
+                    .from('water_reports')
+                    .insert([{
+                        reporter_name: isAnonymous ? 'ผู้ใช้นิรนาม' : (reporterName || 'ผู้ใช้นิรนาม'),
+                        is_anonymous: isAnonymous,
+                        location_name: locationName,
+                        province: province,
+                        district: district,
+                        subdistrict: subdistrict,
+                        latitude: latitude,
+                        longitude: longitude,
+                        fluorescence_level: fluorescenceLevel,
+                        contamination_status: contaminationStatus,
+                        ppm_estimate: ppmEstimate,
+                        notes: notes,
+                        photo_url: finalPhotoUrl
+                    }]);
+
+                if (insertError) throw insertError;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'บันทึกสำเร็จ!',
+                    text: 'ข้อมูลคุณภาพน้ำของคุณถูกเผยแพร่ในบอร์ดและแผนที่เรียบร้อยแล้ว',
+                    timer: 3000,
+                    showConfirmButton: true
+                });
+
+                // Reset form, preview and refresh list
+                reportForm.reset();
+                clearPhotoSelection();
+                
+                // Centering mini-map back to Bangkok default
+                if (miniMap && miniMapMarker) {
+                    const defaultLoc = [13.736717, 100.523186];
+                    miniMapMarker.setLatLng(defaultLoc);
+                    miniMap.setView(defaultLoc, 6);
+                }
+
+                // Reload timeline
+                await fetchAllData();
+
+            } catch (err) {
+                console.error("Insertion error:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ส่งข้อมูลล้มเหลว',
+                    html: `เกิดข้อผิดพลาดในการเขียนข้อมูลลงในตาราง <code>water_reports</code> ของ Supabase:<br><br><small class="text-rose-400 font-mono">${err.message}</small><br><br><small class="text-slate-400">กรุณาตรวจสอบโครงสร้างตาราง (Table Schema) และสิทธิ์ Policy (RLS) ในฐานข้อมูล</small>`
+                });
+            }
+        });
+
+
+        // --- 10. GENERAL DISCUSSION BOARD FORUM INTEGRATION ---
+        const generalCommentForm = document.getElementById('general-comment-form');
+
+        async function fetchGeneralComments() {
+            if (!supabaseClient) return;
+
+            const listContainer = document.getElementById('general-comments-container');
+            const countSpan = document.getElementById('general-comments-count');
+            const commentsLoader = document.getElementById('general-comments-loader');
+
+            try {
+                commentsLoader.classList.remove('hidden');
+
+                // Query comments that don't have report_id (General discussion)
+                const { data: comments, error } = await supabaseClient
+                    .from('comments')
+                    .select('*')
+                    .is('report_id', null)
+                    .order('created_at', { ascending: false });
+
+                if (error) throw error;
+
+                commentsLoader.classList.add('hidden');
+                listContainer.innerHTML = '';
+                countSpan.textContent = `${comments ? comments.length : 0} ข้อความ`;
+
+                if (!comments || comments.length === 0) {
+                    listContainer.innerHTML = `
+                        <div class="glass-panel p-8 text-center rounded-2xl border-white/5 text-slate-500 text-xs">
+                            <i class="fa-solid fa-comments-dollar text-2xl block mb-2 opacity-30"></i>
+                            ยังไม่มีผู้แสดงความคิดเห็นทั่วไป ร่วมเปิดประเด็นเสนอแนะคนแรกได้เลย
+                        </div>
+                    `;
+                    return;
+                }
+
+                comments.forEach(com => {
+                    const box = document.createElement('div');
+                    box.className = 'glass-panel p-4 rounded-2xl border-white/5 shadow-md space-y-2 relative';
+                    
+                    const name = com.is_anonymous ? 'ผู้ใช้นิรนาม' : (com.commenter_name || 'ผู้ใช้นิรนาม');
+                    const comDate = new Date(com.created_at).toLocaleDateString('th-TH', {
+                        year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+                    });
+
+                    box.innerHTML = `
+                        <div class="flex justify-between items-center text-[10px] text-slate-400 border-b border-white/5 pb-1">
+                            <span class="font-bold text-fluo-cyan flex items-center">
+                                <i class="fa-solid ${com.is_anonymous ? 'fa-user-secret' : 'fa-user'} mr-1 text-[11px]"></i> ${name}
+                            </span>
+                            <span class="font-mono text-[9px]">${comDate}</span>
+                        </div>
+                        <p class="text-xs text-slate-200 leading-relaxed font-light">${com.comment_text}</p>
+                    `;
+                    listContainer.appendChild(box);
+                });
+
+            } catch (err) {
+                console.error("General comments fetching error:", err);
+                commentsLoader.classList.add('hidden');
+                listContainer.innerHTML = '<div class="text-rose-400 text-center py-6 text-xs"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ล้มเหลวในการดึงโพสต์เสวนา</div>';
+            }
+        }
+
+        generalCommentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            if (!supabaseClient) {
+                Swal.fire({ icon: 'error', title: 'ขัดข้อง', text: 'ไม่ได้เชื่อมต่อดาต้าเบส' });
+                return;
+            }
+
+            const authorInput = document.getElementById('comment_author');
+            const anonCheckbox = document.getElementById('comment_anonymous');
+            const textInput = document.getElementById('comment_text');
+
+            const text = textInput.value.trim();
+            const author = authorInput.value.trim();
+            const isAnon = anonCheckbox.checked || author === '';
+
+            Swal.fire({
+                title: 'กำลังส่งโพสต์...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            try {
+                const { error } = await supabaseClient
+                    .from('comments')
+                    .insert([{
+                        report_id: null, // Null value represents General Comment
+                        commenter_name: isAnon ? 'ผู้ใช้นิรนาม' : author,
+                        is_anonymous: isAnon,
+                        comment_text: text
+                    }]);
+
+                if (error) throw error;
+
+                Swal.fire({
+                    icon: 'success',
+                    title: 'ส่งเสร็จสิ้น',
+                    text: 'โพสต์ข้อความเสวนาของคุณขึ้นกระดานเรียบร้อยแล้ว',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+
+                // Clear Inputs
+                textInput.value = '';
+                authorInput.value = '';
+                anonCheckbox.checked = false;
+
+                // Reload timeline comments
+                await fetchGeneralComments();
+
+            } catch (err) {
+                console.error("Submit general comment error:", err);
+                Swal.fire({
+                    icon: 'error',
+                    title: 'ล้มเหลว',
+                    html: `เกิดข้อผิดพลาดในการเขียนโพสต์ทั่วไป:<br><small class="text-rose-400 font-mono">${err.message}</small>`
+                });
+            }
+        });
+    </script>
+</body>
+</html>
